@@ -33,7 +33,6 @@ class Session(Base, TimestampMixin):
     )
 
     ip_address: Mapped[str | None] = mapped_column(String(45), index=True)
-    ip_hash: Mapped[str | None] = mapped_column(String(64))
     isp: Mapped[str | None] = mapped_column(String(255))
     asn: Mapped[int | None] = mapped_column(Integer)
     is_vpn: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
