@@ -4,6 +4,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.domains.candidate.models import Candidate
 
 
+class CandidateNotFoundError(Exception):
+    pass
+
+
+async def get_candidate(db: AsyncSession, candidate_id: int) -> Candidate:
+    candidate = await db.get(Candidate, candidate_id)
+    if candidate is None or candidate.deleted_at is not None:
+        raise CandidateNotFoundError(f"Candidate {candidate_id} not found")
+    return candidate
+
+
 async def list_candidates(
     db: AsyncSession, limit: int, offset: int
 ) -> tuple[list[Candidate], int]:

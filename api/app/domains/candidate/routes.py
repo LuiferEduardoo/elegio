@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -21,3 +21,15 @@ async def list_candidates(
         limit=limit,
         offset=offset,
     )
+
+
+@router.get("/{candidate_id}", response_model=CandidateRead)
+async def get_candidate(
+    candidate_id: int = Path(gt=0),
+    db: AsyncSession = Depends(get_db),
+) -> CandidateRead:
+    try:
+        candidate = await service.get_candidate(db, candidate_id)
+    except service.CandidateNotFoundError as e:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, str(e))
+    return CandidateRead.model_validate(candidate)
