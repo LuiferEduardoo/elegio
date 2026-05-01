@@ -32,6 +32,7 @@ elegio/
 - Use **async/await** for database operations
 - Domain structure: `api/app/domains/{domain}/`
 - SQLAlchemy 2.0 models: `Mapped[]` and `mapped_column()`
+- All models **must** include `created_at`, `updated_at`, and `deleted_at` (DateTime). Inherit from `TimestampMixin` in [api/app/core/database.py](api/app/core/database.py) instead of redefining them per model.
 - Pydantic v2 for request/response models
 - API routes: `/api/v1/{resource}`
 
