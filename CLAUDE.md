@@ -35,6 +35,7 @@ elegio/
 - All models **must** include `created_at`, `updated_at`, and `deleted_at` (DateTime). Inherit from `TimestampMixin` in [api/app/core/database.py](api/app/core/database.py) instead of redefining them per model.
 - Pydantic v2 for request/response models
 - API routes: `/api/v1/{resource}`
+- GET endpoints that return multiple items **must** be paginated via `limit` and `offset` query params. Default `limit` is `10` (max `100`); default `offset` is `0`.
 
 ### Migrations (Alembic)
 - Create migration: `alembic revision --autogenerate -m "description"`
