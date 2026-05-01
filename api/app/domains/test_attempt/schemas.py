@@ -20,3 +20,10 @@ class TestAttemptRead(BaseModel):
     started_at: datetime
     finished_at: datetime | None
     created_at: datetime
+
+
+class TestAttemptList(BaseModel):
+    items: list[TestAttemptRead]
+    total: int
+    limit: int
+    offset: int
