@@ -31,6 +31,20 @@ class PostureInProposal(BaseModel):
     axis_value: float
 
 
+class TaggingInProposal(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+
+
+class SourceInProposal(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    url: str
+
+
 class ProposalRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -41,6 +55,8 @@ class ProposalRead(BaseModel):
     category: CategoryInProposal
     candidate: CandidateInProposal
     postures: list[PostureInProposal]
+    taggings: list[TaggingInProposal]
+    sources: list[SourceInProposal]
     created_at: datetime
 
 

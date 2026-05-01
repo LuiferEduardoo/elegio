@@ -9,6 +9,8 @@ from app.domains.category.models import Category
 
 if TYPE_CHECKING:
     from app.domains.posture.models import Posture
+    from app.domains.source.models import Source
+    from app.domains.tagging.models import Tagging
 
 
 class Proposal(Base, TimestampMixin):
@@ -28,3 +30,5 @@ class Proposal(Base, TimestampMixin):
     category: Mapped[Category] = relationship()
     candidate: Mapped[Candidate] = relationship()
     postures: Mapped[list["Posture"]] = relationship(back_populates="proposal")
+    taggings: Mapped[list["Tagging"]] = relationship(back_populates="proposal")
+    sources: Mapped[list["Source"]] = relationship(back_populates="proposal")

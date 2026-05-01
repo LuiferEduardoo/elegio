@@ -14,4 +14,4 @@ class Tagging(Base, TimestampMixin):
         ForeignKey("proposals.id", ondelete="CASCADE"), nullable=False
     )
 
-    proposal: Mapped[Proposal] = relationship()
+    proposal: Mapped[Proposal] = relationship(back_populates="taggings")

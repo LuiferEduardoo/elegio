@@ -14,4 +14,4 @@ class Source(Base, TimestampMixin):
     )
     url: Mapped[str] = mapped_column(String(2048), nullable=False)
 
-    proposal: Mapped[Proposal] = relationship()
+    proposal: Mapped[Proposal] = relationship(back_populates="sources")
