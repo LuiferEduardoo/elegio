@@ -1,12 +1,14 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from typing import Any
+
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.core.security import get_token_payload
 from app.domains.test_attempt import service
 from app.domains.test_attempt.schemas import (
     TestAttemptInitialize,
     TestAttemptInitializeResponse,
-    TestAttemptList,
     TestAttemptRead,
 )
 
@@ -34,20 +36,20 @@ async def initialize_test_attempt(
     )
 
 
-@router.get("/by-ip", response_model=TestAttemptList)
-async def list_by_ip(
-    ip_address: str = Query(..., max_length=45),
-    test_id: int | None = Query(None, gt=0),
-    limit: int = Query(10, ge=1, le=100),
-    offset: int = Query(0, ge=0),
+@router.get("", response_model=TestAttemptRead)
+async def get_test_attempt_from_token(
+    token_payload: dict[str, Any] = Depends(get_token_payload),
     db: AsyncSession = Depends(get_db),
-) -> TestAttemptList:
-    attempts, total = await service.list_test_attempts_by_ip(
-        db, ip_address, limit, offset, test_id=test_id
-    )
-    return TestAttemptList(
-        items=[TestAttemptRead.model_validate(a) for a in attempts],
-        total=total,
-        limit=limit,
-        offset=offset,
-    )
+) -> TestAttemptRead:
+    attempt_uuid = token_payload.get("test_attempt_uuid")
+    if not attempt_uuid:
+        raise HTTPException(
+            status.HTTP_401_UNAUTHORIZED, "Token missing test_attempt_uuid"
+        )
+
+    try:
+        attempt = await service.get_test_attempt_by_uuid(db, attempt_uuid)
+    except service.TestAttemptNotFoundError as e:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, str(e))
+
+    return TestAttemptRead.model_validate(attempt)

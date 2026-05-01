@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import create_access_token
@@ -15,18 +15,8 @@ class TestNotFoundError(Exception):
     pass
 
 
-async def _resolve_visitor_id_by_ip(
-    db: AsyncSession, ip_address: str
-) -> int | None:
-    return (
-        await db.execute(
-            select(Visitor.id)
-            .join(VisitorSession, VisitorSession.visitor_id == Visitor.id)
-            .where(VisitorSession.ip_address == ip_address)
-            .order_by(VisitorSession.started_at.desc())
-            .limit(1)
-        )
-    ).scalar_one_or_none()
+class TestAttemptNotFoundError(Exception):
+    pass
 
 
 async def initialize_test_attempt(
@@ -70,33 +60,16 @@ async def initialize_test_attempt(
     return attempt, visitor, token
 
 
-async def list_test_attempts_by_ip(
-    db: AsyncSession,
-    ip_address: str,
-    limit: int,
-    offset: int,
-    test_id: int | None = None,
-) -> tuple[list[TestAttempt], int]:
-    visitor_id = await _resolve_visitor_id_by_ip(db, ip_address)
-    if visitor_id is None:
-        return [], 0
-
-    filters = [
-        TestAttempt.visitor_id == visitor_id,
-        TestAttempt.deleted_at.is_(None),
-    ]
-    if test_id is not None:
-        filters.append(TestAttempt.test_id == test_id)
-
-    total = (
-        await db.execute(select(func.count(TestAttempt.id)).where(*filters))
-    ).scalar_one()
-
+async def get_test_attempt_by_uuid(
+    db: AsyncSession, attempt_uuid: str
+) -> TestAttempt:
     result = await db.execute(
-        select(TestAttempt)
-        .where(*filters)
-        .order_by(TestAttempt.started_at.desc())
-        .limit(limit)
-        .offset(offset)
+        select(TestAttempt).where(
+            TestAttempt.uuid == attempt_uuid,
+            TestAttempt.deleted_at.is_(None),
+        )
     )
-    return list(result.scalars().all()), total
+    attempt = result.scalar_one_or_none()
+    if attempt is None:
+        raise TestAttemptNotFoundError(f"TestAttempt {attempt_uuid} not found")
+    return attempt
