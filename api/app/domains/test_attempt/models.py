@@ -1,7 +1,7 @@
 import enum
 from datetime import datetime
 
-from sqlalchemy import BigInteger, DateTime, Enum, ForeignKey, func
+from sqlalchemy import BigInteger, DateTime, Enum, ForeignKey, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base, TimestampMixin
@@ -20,6 +20,7 @@ class TestAttempt(Base, TimestampMixin):
     __tablename__ = "test_attempts"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    uuid: Mapped[str] = mapped_column(String(36), unique=True, nullable=False)
     visitor_id: Mapped[int] = mapped_column(
         BigInteger,
         ForeignKey("visitors.id", ondelete="CASCADE"),

@@ -14,6 +14,7 @@ class TestAttemptRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
+    uuid: str
     visitor_id: int
     test_id: int
     status: TestStatus

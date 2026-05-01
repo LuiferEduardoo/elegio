@@ -1,3 +1,5 @@
+import uuid
+
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -42,7 +44,11 @@ async def create_test_attempt(
             f"No visitor found for ip_address={ip_address}"
         )
 
-    attempt = TestAttempt(visitor_id=visitor_id, test_id=test_id)
+    attempt = TestAttempt(
+        uuid=str(uuid.uuid4()),
+        visitor_id=visitor_id,
+        test_id=test_id,
+    )
     db.add(attempt)
     await db.commit()
     await db.refresh(attempt)
