@@ -7,7 +7,9 @@ from app.domains.answer.models import Answer
 from app.domains.answer.schemas import AnswerCreate, AnswerUpdate
 from app.domains.question.models import Question
 from app.domains.response_option.models import ResponseOption
+from app.domains.session.models import Session as VisitorSession
 from app.domains.test_attempt.models import TestAttempt, TestStatus
+from app.domains.visitor.models import Visitor
 
 
 class AnswerNotFoundError(Exception):
@@ -144,3 +146,48 @@ async def update_answer(
     await db.commit()
     await db.refresh(answer)
     return answer
+
+
+async def list_answers_by_ip_and_test(
+    db: AsyncSession, ip_address: str, test_id: int, limit: int, offset: int
+) -> tuple[list[Answer], int]:
+    visitor_id = (
+        await db.execute(
+            select(Visitor.id)
+            .join(VisitorSession, VisitorSession.visitor_id == Visitor.id)
+            .where(VisitorSession.ip_address == ip_address)
+            .order_by(VisitorSession.started_at.desc())
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+
+    if visitor_id is None:
+        return [], 0
+
+    attempt_ids_subq = (
+        select(TestAttempt.id)
+        .where(
+            TestAttempt.visitor_id == visitor_id,
+            TestAttempt.test_id == test_id,
+            TestAttempt.deleted_at.is_(None),
+        )
+        .scalar_subquery()
+    )
+
+    filters = (
+        Answer.deleted_at.is_(None),
+        Answer.test_attempt_id.in_(attempt_ids_subq),
+    )
+
+    total = (
+        await db.execute(select(func.count(Answer.id)).where(*filters))
+    ).scalar_one()
+
+    result = await db.execute(
+        select(Answer)
+        .where(*filters)
+        .order_by(Answer.created_at.desc(), Answer.id.desc())
+        .limit(limit)
+        .offset(offset)
+    )
+    return list(result.scalars().all()), total

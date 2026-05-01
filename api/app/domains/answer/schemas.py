@@ -38,3 +38,10 @@ class AnswerCreateResponse(BaseModel):
     answer: AnswerRead
     test_completed: bool
     test_attempt_status: TestStatus
+
+
+class AnswerList(BaseModel):
+    items: list[AnswerRead]
+    total: int
+    limit: int
+    offset: int
