@@ -14,6 +14,7 @@ from app.core.database import Base
 from app.domains.candidate import models as _candidate_models  # noqa: F401
 from app.domains.category import models as _category_models  # noqa: F401
 from app.domains.government_plan import models as _government_plan_models  # noqa: F401
+from app.domains.posture import models as _posture_models  # noqa: F401
 from app.domains.proposal import models as _proposal_models  # noqa: F401
 from app.domains.source import models as _source_models  # noqa: F401
 from app.domains.tagging import models as _tagging_models  # noqa: F401
