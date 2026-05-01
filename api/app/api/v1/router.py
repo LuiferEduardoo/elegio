@@ -1,6 +1,9 @@
 from fastapi import APIRouter
 
+from app.domains.visitor.routes import router as visitor_router
+
 api_router = APIRouter(prefix="/api/v1")
+api_router.include_router(visitor_router)
 
 
 @api_router.get("/health", tags=["health"])
