@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -27,3 +27,12 @@ async def track_visitor(
         visitor=VisitorRead.model_validate(visitor),
         session=SessionRead.model_validate(session),
     )
+
+
+@router.get("/by-ip", response_model=list[VisitorRead])
+async def get_visitors_by_ip(
+    ip_address: str = Query(..., max_length=45),
+    db: AsyncSession = Depends(get_db),
+) -> list[VisitorRead]:
+    visitors = await service.get_visitors_by_ip(db, ip_address)
+    return [VisitorRead.model_validate(v) for v in visitors]

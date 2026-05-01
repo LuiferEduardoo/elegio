@@ -1,5 +1,6 @@
 import uuid
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domains.session.models import Session as VisitorSession
@@ -28,3 +29,13 @@ async def track_visit(
     await db.refresh(session)
 
     return visitor, session
+
+
+async def get_visitors_by_ip(db: AsyncSession, ip_address: str) -> list[Visitor]:
+    result = await db.execute(
+        select(Visitor)
+        .join(VisitorSession, VisitorSession.visitor_id == Visitor.id)
+        .where(VisitorSession.ip_address == ip_address)
+        .distinct()
+    )
+    return list(result.scalars().all())
