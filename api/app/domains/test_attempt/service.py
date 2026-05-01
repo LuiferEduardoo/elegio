@@ -3,14 +3,12 @@ import uuid
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.security import create_access_token
 from app.domains.session.models import Session as VisitorSession
 from app.domains.test.models import Test
 from app.domains.test_attempt.models import TestAttempt
+from app.domains.test_attempt.schemas import TestAttemptInitialize
 from app.domains.visitor.models import Visitor
-
-
-class VisitorNotFoundError(Exception):
-    pass
 
 
 class TestNotFoundError(Exception):
@@ -31,28 +29,45 @@ async def _resolve_visitor_id_by_ip(
     ).scalar_one_or_none()
 
 
-async def create_test_attempt(
-    db: AsyncSession, test_id: int, ip_address: str
-) -> TestAttempt:
-    test = await db.get(Test, test_id)
+async def initialize_test_attempt(
+    db: AsyncSession, payload: TestAttemptInitialize
+) -> tuple[TestAttempt, Visitor, str]:
+    test = await db.get(Test, payload.test_id)
     if test is None or test.deleted_at is not None:
-        raise TestNotFoundError(f"Test {test_id} not found")
+        raise TestNotFoundError(f"Test {payload.test_id} not found")
 
-    visitor_id = await _resolve_visitor_id_by_ip(db, ip_address)
-    if visitor_id is None:
-        raise VisitorNotFoundError(
-            f"No visitor found for ip_address={ip_address}"
-        )
+    visitor = Visitor(
+        visitor_uid=uuid.uuid4().hex,
+        total_sessions=1,
+        **payload.visitor.model_dump(),
+    )
+    db.add(visitor)
+    await db.flush()
+
+    session = VisitorSession(visitor_id=visitor.id, **payload.session.model_dump())
+    db.add(session)
+    await db.flush()
 
     attempt = TestAttempt(
         uuid=str(uuid.uuid4()),
-        visitor_id=visitor_id,
-        test_id=test_id,
+        visitor_id=visitor.id,
+        test_id=payload.test_id,
     )
     db.add(attempt)
+
     await db.commit()
     await db.refresh(attempt)
-    return attempt
+    await db.refresh(visitor)
+
+    token = create_access_token(
+        {
+            "test_attempt_uuid": attempt.uuid,
+            "visitor_id": visitor.id,
+            "test_id": payload.test_id,
+        }
+    )
+
+    return attempt, visitor, token
 
 
 async def list_test_attempts_by_ip(

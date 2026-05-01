@@ -3,11 +3,14 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.domains.test_attempt.models import TestStatus
+from app.domains.visitor.schemas import SessionCreate, VisitorCreate
 
 
-class TestAttemptCreate(BaseModel):
+
+class TestAttemptInitialize(BaseModel):
     test_id: int = Field(gt=0)
-    ip_address: str = Field(min_length=1, max_length=45)
+    visitor: VisitorCreate
+    session: SessionCreate = Field(default_factory=SessionCreate)
 
 
 class TestAttemptRead(BaseModel):
@@ -28,3 +31,9 @@ class TestAttemptList(BaseModel):
     total: int
     limit: int
     offset: int
+
+
+class TestAttemptInitializeResponse(BaseModel):
+    test_attempt: TestAttemptRead
+    visitor_id: int
+    token: str
