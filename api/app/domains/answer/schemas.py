@@ -14,6 +14,13 @@ class AnswerCreate(BaseModel):
     response_time: int | None = Field(default=None, ge=0)
 
 
+class AnswerUpdate(BaseModel):
+    response_option_id: int | None = Field(default=None, gt=0)
+    boolean_answer: bool | None = None
+    open_text_answer: str | None = None
+    response_time: int | None = Field(default=None, ge=0)
+
+
 class AnswerRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
