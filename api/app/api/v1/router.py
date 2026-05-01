@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 
 from app.domains.candidate.routes import router as candidate_router
+from app.domains.government_plan.routes import router as government_plan_router
 from app.domains.proposal.routes import router as proposal_router
 from app.domains.test.routes import router as test_router
 from app.domains.test_attempt.routes import router as test_attempt_router
@@ -12,6 +13,7 @@ api_router.include_router(test_router)
 api_router.include_router(test_attempt_router)
 api_router.include_router(candidate_router)
 api_router.include_router(proposal_router)
+api_router.include_router(government_plan_router)
 
 
 @api_router.get("/health", tags=["health"])
