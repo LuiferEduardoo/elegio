@@ -4,6 +4,7 @@ from app.domains.candidate.routes import router as candidate_router
 from app.domains.event.routes import router as event_router
 from app.domains.government_plan.routes import router as government_plan_router
 from app.domains.proposal.routes import router as proposal_router
+from app.domains.question.routes import router as question_router
 from app.domains.test.routes import router as test_router
 from app.domains.test_attempt.routes import router as test_attempt_router
 from app.domains.visitor.routes import router as visitor_router
@@ -16,6 +17,7 @@ api_router.include_router(candidate_router)
 api_router.include_router(proposal_router)
 api_router.include_router(government_plan_router)
 api_router.include_router(event_router)
+api_router.include_router(question_router)
 
 
 @api_router.get("/health", tags=["health"])
