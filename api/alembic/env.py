@@ -11,15 +11,19 @@ from app.core.config import get_settings
 from app.core.database import Base
 
 # Import domain models here so Alembic detects them for autogenerate
+from app.domains.answer import models as _answer_models  # noqa: F401
 from app.domains.candidate import models as _candidate_models  # noqa: F401
 from app.domains.category import models as _category_models  # noqa: F401
 from app.domains.event import models as _event_models  # noqa: F401
 from app.domains.government_plan import models as _government_plan_models  # noqa: F401
 from app.domains.posture import models as _posture_models  # noqa: F401
 from app.domains.proposal import models as _proposal_models  # noqa: F401
+from app.domains.question import models as _question_models  # noqa: F401
+from app.domains.response_option import models as _response_option_models  # noqa: F401
 from app.domains.session import models as _session_models  # noqa: F401
 from app.domains.source import models as _source_models  # noqa: F401
 from app.domains.tagging import models as _tagging_models  # noqa: F401
+from app.domains.test import models as _test_models  # noqa: F401
 from app.domains.visitor import models as _visitor_models  # noqa: F401
 
 config = context.config
