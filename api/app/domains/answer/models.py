@@ -1,19 +1,18 @@
-from sqlalchemy import BigInteger, Boolean, ForeignKey, Integer, Text
+from sqlalchemy import Boolean, ForeignKey, Integer, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base, TimestampMixin
 from app.domains.question.models import Question
 from app.domains.response_option.models import ResponseOption
-from app.domains.visitor.models import Visitor
+from app.domains.test_attempt.models import TestAttempt
 
 
 class Answer(Base, TimestampMixin):
     __tablename__ = "answers"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    visitor_id: Mapped[int] = mapped_column(
-        BigInteger,
-        ForeignKey("visitors.id", ondelete="CASCADE"),
+    test_attempt_id: Mapped[int] = mapped_column(
+        ForeignKey("test_attempts.id", ondelete="CASCADE"), 
         nullable=False,
         index=True,
     )
@@ -29,6 +28,6 @@ class Answer(Base, TimestampMixin):
 
     response_time: Mapped[int | None] = mapped_column(Integer)
 
-    visitor: Mapped[Visitor] = relationship()
     question: Mapped[Question] = relationship()
     response_option: Mapped[ResponseOption | None] = relationship()
+    test_attempt: Mapped[TestAttempt] = relationship()
