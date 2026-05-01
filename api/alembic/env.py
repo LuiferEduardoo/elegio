@@ -24,6 +24,7 @@ from app.domains.session import models as _session_models  # noqa: F401
 from app.domains.source import models as _source_models  # noqa: F401
 from app.domains.tagging import models as _tagging_models  # noqa: F401
 from app.domains.test import models as _test_models  # noqa: F401
+from app.domains.test_attempt import models as _test_attempt_models  # noqa: F401
 from app.domains.visitor import models as _visitor_models  # noqa: F401
 
 config = context.config
