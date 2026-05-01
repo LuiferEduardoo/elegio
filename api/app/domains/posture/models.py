@@ -14,4 +14,4 @@ class Posture(Base, TimestampMixin):
     )
     axis_value: Mapped[float] = mapped_column(Float, nullable=False)
 
-    proposal: Mapped[Proposal] = relationship()
+    proposal: Mapped[Proposal] = relationship(back_populates="postures")

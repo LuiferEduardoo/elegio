@@ -1,9 +1,14 @@
+from typing import TYPE_CHECKING
+
 from sqlalchemy import ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base, TimestampMixin
 from app.domains.candidate.models import Candidate
 from app.domains.category.models import Category
+
+if TYPE_CHECKING:
+    from app.domains.posture.models import Posture
 
 
 class Proposal(Base, TimestampMixin):
@@ -22,3 +27,4 @@ class Proposal(Base, TimestampMixin):
 
     category: Mapped[Category] = relationship()
     candidate: Mapped[Candidate] = relationship()
+    postures: Mapped[list["Posture"]] = relationship(back_populates="proposal")
