@@ -36,6 +36,10 @@ elegio/
 - Pydantic v2 for request/response models
 - API routes: `/api/v1/{resource}`
 - GET endpoints that return multiple items **must** be paginated via `limit` and `offset` query params. Default `limit` is `10` (max `100`); default `offset` is `0`.
+- Every endpoint **must** declare a rate limit using slowapi:
+  - **Public routes** (no JWT): `@limiter.limit(PUBLIC_RATE_LIMIT)`
+  - **Private routes** (`Depends(get_token_payload)`): `@limiter.limit(PRIVATE_RATE_LIMIT)`
+  - Constants live in [api/app/core/rate_limit.py](api/app/core/rate_limit.py). The decorated handler must accept `request: Request` as its first parameter so slowapi can read the client IP.
 
 ### Migrations (Alembic)
 - Create migration: `alembic revision --autogenerate -m "description"`
