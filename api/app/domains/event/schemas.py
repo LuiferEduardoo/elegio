@@ -5,8 +5,6 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class EventCreate(BaseModel):
-    ip_address: str = Field(min_length=1, max_length=45)
-
     event_type: str = Field(min_length=1, max_length=50)
     event_name: str | None = Field(default=None, max_length=100)
 
