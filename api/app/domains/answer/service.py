@@ -111,21 +111,31 @@ async def create_answer(
 
 
 async def update_answer(
-    db: AsyncSession, answer_id: int, payload: AnswerUpdate
+    db: AsyncSession, answer_id: int, payload: AnswerUpdate, uuid_test_attempt: str
 ) -> Answer:
     answer = await db.get(Answer, answer_id)
     if answer is None or answer.deleted_at is not None:
         raise AnswerNotFoundError(f"Answer {answer_id} not found")
 
-    attempt = await db.get(TestAttempt, answer.test_attempt_id)
+    attempt = (
+        await db.execute(
+            select(TestAttempt).where(
+                TestAttempt.uuid_test_attempt == uuid_test_attempt
+            )
+        )
+    ).scalar_one_or_none()
+    
     if attempt is None or attempt.deleted_at is not None:
         raise TestAttemptNotFoundError(
-            f"TestAttempt {answer.test_attempt_id} not found"
+            f"TestAttempt {uuid_test_attempt} not found"
         )
     if attempt.status != TestStatus.IN_PROGRESS:
         raise TestAttemptNotInProgressError(
             f"TestAttempt {attempt.id} is {attempt.status.value}; cannot update answers"
         )
+    
+    if answer.test_attempt_id != attempt.id:
+        raise AnswerNotFoundError(f"Answer {answer_id} not found in the current test attempt")
 
     updates = payload.model_dump(exclude_unset=True)
 

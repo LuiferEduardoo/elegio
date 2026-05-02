@@ -52,10 +52,11 @@ async def create_answer(
 async def update_answer(
     payload: AnswerUpdate,
     answer_id: int = Path(gt=0),
+    token_payload: dict[str, Any] = Depends(get_token_payload),
     db: AsyncSession = Depends(get_db),
 ) -> AnswerRead:
     try:
-        answer = await service.update_answer(db, answer_id, payload)
+        answer = await service.update_answer(db, answer_id, payload, token_payload.get("test_attempt_uuid"))
     except (
         service.AnswerNotFoundError,
         service.TestAttemptNotFoundError,
