@@ -1,7 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.core.rate_limit import PUBLIC_RATE_LIMIT, limiter
 from app.domains.response_option import service
 from app.domains.response_option.schemas import ResponseOptionList, ResponseOptionRead
 
@@ -9,7 +10,9 @@ router = APIRouter(prefix="/response-options", tags=["response-options"])
 
 
 @router.get("/question/{question_id}", response_model=ResponseOptionList)
+@limiter.limit(PUBLIC_RATE_LIMIT)
 async def list_response_options_by_question(
+    request: Request,
     question_id: int = Path(gt=0),
     limit: int = Query(10, ge=1, le=100),
     offset: int = Query(0, ge=0),
