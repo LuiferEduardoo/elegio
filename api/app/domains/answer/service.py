@@ -124,7 +124,7 @@ async def update_answer(
             )
         )
     ).scalar_one_or_none()
-    
+
     if attempt is None or attempt.deleted_at is not None:
         raise TestAttemptNotFoundError(
             f"TestAttempt {uuid_test_attempt} not found"
@@ -158,26 +158,13 @@ async def update_answer(
     return answer
 
 
-async def list_answers_by_ip_and_test(
-    db: AsyncSession, ip_address: str, test_id: int, limit: int, offset: int
+async def list_answers(
+    db: AsyncSession, test_attempt_uuid: str, test_id: int, limit: int, offset: int
 ) -> tuple[list[Answer], int]:
-    visitor_id = (
-        await db.execute(
-            select(Visitor.id)
-            .join(VisitorSession, VisitorSession.visitor_id == Visitor.id)
-            .where(VisitorSession.ip_address == ip_address)
-            .order_by(VisitorSession.started_at.desc())
-            .limit(1)
-        )
-    ).scalar_one_or_none()
-
-    if visitor_id is None:
-        return [], 0
-
     attempt_ids_subq = (
         select(TestAttempt.id)
         .where(
-            TestAttempt.visitor_id == visitor_id,
+            TestAttempt.uuid == test_attempt_uuid,
             TestAttempt.test_id == test_id,
             TestAttempt.deleted_at.is_(None),
         )

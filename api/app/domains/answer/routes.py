@@ -72,16 +72,15 @@ async def update_answer(
     return AnswerRead.model_validate(answer)
 
 
-@router.get("/by-ip", response_model=AnswerList)
-async def list_answers_by_ip_and_test(
-    ip_address: str = Query(..., max_length=45),
-    test_id: int = Query(..., gt=0),
+@router.get("", response_model=AnswerList)
+async def list_answers(
     limit: int = Query(10, ge=1, le=100),
     offset: int = Query(0, ge=0),
+    token_payload: dict[str, Any] = Depends(get_token_payload),
     db: AsyncSession = Depends(get_db),
 ) -> AnswerList:
-    answers, total = await service.list_answers_by_ip_and_test(
-        db, ip_address, test_id, limit, offset
+    answers, total = await service.list_answers(
+        db, token_payload.get("test_attempt_uuid"), token_payload.get("test_id"), limit, offset
     )
     return AnswerList(
         items=[AnswerRead.model_validate(a) for a in answers],
