@@ -4,7 +4,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domains.answer.models import Answer
-from app.domains.answer.schemas import AnswerCreate, AnswerUpdate
+from app.domains.answer.schemas import AnswerCreateWithAttempt, AnswerUpdate
 from app.domains.question.models import Question
 from app.domains.response_option.models import ResponseOption
 from app.domains.session.models import Session as VisitorSession
@@ -41,12 +41,12 @@ class ResponseOptionDoesNotBelongToQuestionError(Exception):
 
 
 async def create_answer(
-    db: AsyncSession, payload: AnswerCreate
+    db: AsyncSession, payload: AnswerCreateWithAttempt
 ) -> tuple[Answer, bool, TestStatus]:
-    attempt = await db.get(TestAttempt, payload.test_attempt_id)
+    attempt = await db.get(TestAttempt, payload.test_attempt_uuid)
     if attempt is None or attempt.deleted_at is not None:
         raise TestAttemptNotFoundError(
-            f"TestAttempt {payload.test_attempt_id} not found"
+            f"TestAttempt {payload.test_attempt_uuid} not found"
         )
     if attempt.status != TestStatus.IN_PROGRESS:
         raise TestAttemptNotInProgressError(

@@ -6,12 +6,15 @@ from app.domains.test_attempt.models import TestStatus
 
 
 class AnswerCreate(BaseModel):
-    test_attempt_id: int = Field(gt=0)
     question_id: int = Field(gt=0)
     response_option_id: int | None = Field(default=None, gt=0)
     boolean_answer: bool | None = None
     open_text_answer: str | None = None
     response_time: int | None = Field(default=None, ge=0)
+
+
+class AnswerCreateWithAttempt(AnswerCreate):
+    test_attempt_uuid: str
 
 
 class AnswerUpdate(BaseModel):

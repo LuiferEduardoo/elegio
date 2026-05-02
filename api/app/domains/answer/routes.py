@@ -1,3 +1,5 @@
+from api.app.core.security import get_token_payload
+from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -21,10 +23,11 @@ router = APIRouter(prefix="/answers", tags=["answers"])
 )
 async def create_answer(
     payload: AnswerCreate,
+    token_payload: dict[str, Any] = Depends(get_token_payload),
     db: AsyncSession = Depends(get_db),
 ) -> AnswerCreateResponse:
     try:
-        answer, test_completed, test_status = await service.create_answer(db, payload)
+        answer, test_completed, test_status = await service.create_answer(db, {**payload, "uuid_test_attempt": token_payload.get("test_attempt_uuid")})
     except (
         service.TestAttemptNotFoundError,
         service.QuestionNotFoundError,
