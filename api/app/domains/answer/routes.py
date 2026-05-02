@@ -1,9 +1,11 @@
-from app.core.security import get_token_payload
 from typing import Any
-from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
+
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.core.rate_limit import PRIVATE_RATE_LIMIT, limiter
+from app.core.security import get_token_payload
 from app.domains.answer import service
 from app.domains.answer.schemas import (
     AnswerCreate,
@@ -21,7 +23,9 @@ router = APIRouter(prefix="/answers", tags=["answers"])
     response_model=AnswerCreateResponse,
     status_code=status.HTTP_201_CREATED,
 )
+@limiter.limit(PRIVATE_RATE_LIMIT)
 async def create_answer(
+    request: Request,
     payload: AnswerCreate,
     token_payload: dict[str, Any] = Depends(get_token_payload),
     db: AsyncSession = Depends(get_db),
@@ -49,7 +53,9 @@ async def create_answer(
 
 
 @router.patch("/{answer_id}", response_model=AnswerRead)
+@limiter.limit(PRIVATE_RATE_LIMIT)
 async def update_answer(
+    request: Request,
     payload: AnswerUpdate,
     answer_id: int = Path(gt=0),
     token_payload: dict[str, Any] = Depends(get_token_payload),
@@ -73,7 +79,9 @@ async def update_answer(
 
 
 @router.get("", response_model=AnswerList)
+@limiter.limit(PRIVATE_RATE_LIMIT)
 async def list_answers(
+    request: Request,
     limit: int = Query(10, ge=1, le=100),
     offset: int = Query(0, ge=0),
     token_payload: dict[str, Any] = Depends(get_token_payload),

@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.core.rate_limit import PUBLIC_RATE_LIMIT, limiter
+from app.core.rate_limit import PRIVATE_RATE_LIMIT, PUBLIC_RATE_LIMIT, limiter
 from app.core.security import get_token_payload
 from app.domains.test_attempt import service
 from app.domains.test_attempt.schemas import (
@@ -40,7 +40,9 @@ async def initialize_test_attempt(
 
 
 @router.get("", response_model=TestAttemptRead)
+@limiter.limit(PRIVATE_RATE_LIMIT)
 async def get_test_attempt_from_token(
+    request: Request,
     token_payload: dict[str, Any] = Depends(get_token_payload),
     db: AsyncSession = Depends(get_db),
 ) -> TestAttemptRead:
