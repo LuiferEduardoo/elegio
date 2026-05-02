@@ -14,7 +14,7 @@ class AnswerCreate(BaseModel):
 
 
 class AnswerCreateWithAttempt(AnswerCreate):
-    test_attempt_uuid: str
+    test_attempt_uuid: str | None = None
 
 
 class AnswerUpdate(BaseModel):

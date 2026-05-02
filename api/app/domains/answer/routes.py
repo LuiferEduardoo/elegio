@@ -1,4 +1,4 @@
-from api.app.core.security import get_token_payload
+from app.core.security import get_token_payload
 from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
