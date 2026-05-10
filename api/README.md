@@ -244,7 +244,7 @@ Any route that depends on `get_token_payload` is **private** (see [Rate limits](
 
 ## ⏱ Rate limits
 
-All endpoints are rate-limited per **client IP** (`get_remote_address`) using [slowapi](https://github.com/laurentS/slowapi). Limits live in [app/core/rate_limit.py](app/core/rate_limit.py):
+All endpoints — **public and private alike** — are rate-limited per **client IP** (`get_remote_address`) using [slowapi](https://github.com/laurentS/slowapi). Authentication does not exempt a route from throttling; private endpoints simply use a higher ceiling. Limits live in [app/core/rate_limit.py](app/core/rate_limit.py):
 
 | Class    | Constant              | Value         | Applies to                                  |
 | -------- | --------------------- | ------------- | ------------------------------------------- |
@@ -506,6 +506,8 @@ Errors:
 [routes.py](app/domains/proposal/routes.py) · [service.py](app/domains/proposal/service.py) · [models.py](app/domains/proposal/models.py)
 
 A `Proposal` is a single policy item from a candidate. It is always returned with its **category**, **candidate**, **postures** (axis values), **taggings**, and **sources** eagerly loaded.
+
+> **About postures.** A `Posture` ([app/domains/posture/models.py](app/domains/posture/models.py)) records a candidate's coded position for a proposal on a given axis. Each row persists more than what the API exposes today: the numeric `axis_value`, plus a `confidence` enum (`high` / `medium` / `low`), free-text `reasoning` and `ambiguities`, and authorship metadata via `coder_type` (`llm` / `human`) and `coder_name`. The Proposal endpoints only surface `id` and `axis_value` — the remaining fields are kept for downstream auditing and analysis (see the [analysis](../analysis) service).
 
 #### `GET /api/v1/proposals`
 
@@ -982,6 +984,7 @@ api_router.include_router(candidate_router)
 - Use SQLAlchemy 2.0 syntax: `Mapped[]` and `mapped_column()`.
 - Inherit from `Base` and `TimestampMixin` ([app/core/database.py](app/core/database.py)) so every table gets `created_at`, `updated_at`, and `deleted_at` for free. **Do not redefine these columns per model.**
 - Soft-delete with `deleted_at` rather than hard deletes. All read queries filter `deleted_at IS NOT NULL` rows out.
+- For constrained string sets, declare a `str, enum.Enum` and persist it with `SAEnum(MyEnum, name="my_enum")` so a native database enum is created. See `ConfidenceLevel` and `CoderType` in [app/domains/posture/models.py](app/domains/posture/models.py) for an example.
 
 ```python
 from app.core.database import Base, TimestampMixin
