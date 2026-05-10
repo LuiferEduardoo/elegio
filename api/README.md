@@ -508,6 +508,17 @@ Errors:
 A `Proposal` is a single policy item from a candidate. It is always returned with its **category**, **candidate**, **postures** (axis values), **taggings**, and **sources** eagerly loaded.
 
 > **About postures.** A `Posture` ([app/domains/posture/models.py](app/domains/posture/models.py)) records a candidate's coded position for a proposal on a given axis. Each row persists more than what the API exposes today: the numeric `axis_value`, plus a `confidence` enum (`high` / `medium` / `low`), free-text `reasoning` and `ambiguities`, and authorship metadata via `coder_type` (`llm` / `human`) and `coder_name`. The Proposal endpoints only surface `id` and `axis_value` — the remaining fields are kept for downstream auditing and analysis (see the [analysis](../analysis) service).
+>
+> **About categories.** A `Category` ([app/domains/category/models.py](app/domains/category/models.py)) is the descriptive axis a `Posture.axis_value` is placed on (the same `-1.0` / `+1.0` scale). In addition to `id`, `name`, and `weight`, every category persists the labels and descriptions of its two poles:
+>
+> | Field                        | Type          | Nullable | Description                                       |
+> | ---------------------------- | ------------- | :------: | ------------------------------------------------- |
+> | `negative_pole_name`         | `String(64)`  |    no    | Short label for the `-1.0` end of the axis        |
+> | `negative_pole_description`  | `Text`        |    no    | Longer description of the negative pole           |
+> | `positive_pole_name`         | `String(64)`  |    no    | Short label for the `+1.0` end of the axis        |
+> | `positive_pole_description`  | `Text`        |    no    | Longer description of the positive pole           |
+>
+> These pole fields are stored on the model (migration `51c9fb4e4f9d_add_fields_negative_pole_name_negative_*`) and are intended to be used by the [analysis](../analysis) service when reasoning about each axis. The nested `category` object returned by the Proposals and Questions endpoints currently exposes only `id`, `name`, and `weight`.
 
 #### `GET /api/v1/proposals`
 
