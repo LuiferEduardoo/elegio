@@ -40,3 +40,9 @@ class ProposalRead(BaseModel):
     summary: str | None
     full_text: str | None
     category: CategoryRead
+
+
+class PostureResult(BaseModel):
+    id: int
+    axis_value: float
+    confidence: ConfidenceLevel

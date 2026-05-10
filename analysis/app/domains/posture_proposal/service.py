@@ -6,6 +6,7 @@ from app.domains.posture_proposal.prompt import build_prompt
 from app.domains.posture_proposal.schemas import (
     ConfidenceLevel,
     CoderType,
+    PostureResult,
     ProposalRead,
 )
 
@@ -22,7 +23,7 @@ class PostureService:
         self.conn = conn
         self.classifier = classifier
 
-    def rate_proposal(self, proposal: ProposalRead) -> int:
+    def rate_proposal(self, proposal: ProposalRead) -> PostureResult:
         """Classify a proposal with the LLM and insert the resulting posture."""
         prompt = build_prompt(
             category_slug=proposal.category.name,
@@ -31,11 +32,12 @@ class PostureService:
         )
 
         result = self.classifier.classify(prompt)
+        confidence = CONFIDENCE_MAP[result.confidence]
 
         stmt = postures_table.insert().values(
             proposal_id=proposal.id,
             axis_value=result.score,
-            confidence=CONFIDENCE_MAP[result.confidence].value,
+            confidence=confidence.value,
             reasoning=result.reasoning,
             ambiguities=result.ambiguities,
             coder_type=CoderType.LLM.value,
@@ -44,4 +46,8 @@ class PostureService:
 
         cursor = self.conn.execute(stmt)
         self.conn.commit()
-        return cursor.inserted_primary_key[0]
+        return PostureResult(
+            id=cursor.inserted_primary_key[0],
+            axis_value=result.score,
+            confidence=confidence,
+        )

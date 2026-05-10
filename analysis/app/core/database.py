@@ -3,6 +3,7 @@ from sqlalchemy import (
     DateTime,
     Enum,
     Float,
+    ForeignKey,
     Integer,
     MetaData,
     String,
@@ -18,11 +19,35 @@ engine = create_engine(settings.database_url, future=True)
 
 metadata = MetaData()
 
+categories_table = Table(
+    "categories",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("name", String(255), nullable=False),
+    Column("weight", Float, nullable=False),
+)
+
+proposals_table = Table(
+    "proposals",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("title", String(255), nullable=False),
+    Column("summary", Text),
+    Column("full_text", Text),
+    Column("category_id", Integer, ForeignKey("categories.id"), nullable=False),
+    Column("candidate_id", Integer, ForeignKey("candidates.id"), nullable=False),
+)
+
 postures_table = Table(
     "postures",
     metadata,
     Column("id", Integer, primary_key=True, autoincrement=True),
-    Column("proposal_id", Integer, nullable=False),
+    Column(
+        "proposal_id",
+        Integer,
+        ForeignKey("proposals.id", ondelete="CASCADE"),
+        nullable=False,
+    ),
     Column("axis_value", Float, nullable=False),
     Column(
         "confidence",
