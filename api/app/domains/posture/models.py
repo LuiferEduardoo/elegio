@@ -1,8 +1,21 @@
-from sqlalchemy import Float, ForeignKey
+import enum
+
+from sqlalchemy import Enum as SAEnum, Float, ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base, TimestampMixin
 from app.domains.proposal.models import Proposal
+
+
+class ConfidenceLevel(str, enum.Enum):
+    HIGH = "high"
+    MEDIUM = "medium"
+    LOW = "low"
+
+
+class CoderType(str, enum.Enum):
+    LLM = "llm"
+    HUMAN = "human"
 
 
 class Posture(Base, TimestampMixin):
@@ -15,3 +28,16 @@ class Posture(Base, TimestampMixin):
     axis_value: Mapped[float] = mapped_column(Float, nullable=False)
 
     proposal: Mapped[Proposal] = relationship(back_populates="postures")
+
+    confidence: Mapped[ConfidenceLevel] = mapped_column(
+        SAEnum(ConfidenceLevel, name="confidence_level"), nullable=False
+    )
+
+    reasoning: Mapped[str | None] = mapped_column(Text, nullable=True)
+    ambiguities: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    coder_type: Mapped[CoderType] = mapped_column(
+        SAEnum(CoderType, name="coder_type"), nullable=False
+    )
+
+    coder_name: Mapped[str] = mapped_column(String(255), nullable=False)
