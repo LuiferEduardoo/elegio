@@ -35,7 +35,7 @@ elegio/
 - **Tailwind CSS** - Utility-first styling
 
 ### AI
-- **Claude API** - Proposal analysis and insights
+- **Gemini API** - Proposal analysis and insights
 
 ## 📦 Installation
 
