@@ -123,8 +123,8 @@ Domain routers are wired into the v1 router in [app/api/v1/router.py](app/api/v1
 
 ```bash
 cd api
-python3.12 -m venv venv
-source venv/bin/activate        # Linux/Mac
+python -m venv .venv
+source .venv/bin/activate        # Linux/Mac
 # venv\Scripts\activate          # Windows
 pip install -r requirements.txt
 ```
