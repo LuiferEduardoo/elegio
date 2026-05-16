@@ -8,6 +8,7 @@ from app.core.rate_limit import PRIVATE_RATE_LIMIT, limiter
 from app.core.security import get_token_payload
 from app.domains.answer import service
 from app.domains.answer.schemas import (
+    AffinityResponse,
     AnswerCreate,
     AnswerCreateResponse,
     AnswerList,
@@ -96,3 +97,18 @@ async def list_answers(
         limit=limit,
         offset=offset,
     )
+
+
+@router.get("/affinity", response_model=AffinityResponse)
+@limiter.limit(PRIVATE_RATE_LIMIT)
+async def get_affinity(
+    request: Request,
+    token_payload: dict[str, Any] = Depends(get_token_payload),
+    db: AsyncSession = Depends(get_db),
+) -> AffinityResponse:
+    try:
+        return await service.get_affinity(
+            db, token_payload.get("test_attempt_uuid")
+        )
+    except service.TestAttemptNotFoundError as e:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, str(e))
