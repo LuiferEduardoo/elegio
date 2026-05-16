@@ -18,6 +18,7 @@ from app.domains.event import models as _event_models  # noqa: F401
 from app.domains.government_plan import models as _government_plan_models  # noqa: F401
 from app.domains.posture import models as _posture_models  # noqa: F401
 from app.domains.proposal import models as _proposal_models  # noqa: F401
+from app.domains.proposal_chunk import models as _proposal_chunk_models  # noqa: F401
 from app.domains.question import models as _question_models  # noqa: F401
 from app.domains.response_option import models as _response_option_models  # noqa: F401
 from app.domains.session import models as _session_models  # noqa: F401
