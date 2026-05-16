@@ -4,7 +4,7 @@ from qdrant_client import QdrantClient
 from qdrant_client.models import PointStruct
 from sqlalchemy import Connection, select
 
-from app.core.database import proposal_chunks_table
+from app.core.database import proposal_chunks_table, proposals_table
 from app.core.embedder import Embedder
 from app.core.qdrant_client import COLLECTION_NAME
 
@@ -47,7 +47,16 @@ def fetch_chunks(
             proposal_chunks_table.c.chunk_index,
             proposal_chunks_table.c.total_chunks,
             proposal_chunks_table.c.content,
-        ).where(proposal_chunks_table.c.id.in_(ids_list))
+            proposals_table.c.category_id,
+            proposals_table.c.candidate_id,
+        )
+        .select_from(
+            proposal_chunks_table.join(
+                proposals_table,
+                proposal_chunks_table.c.proposal_id == proposals_table.c.id,
+            )
+        )
+        .where(proposal_chunks_table.c.id.in_(ids_list))
     ).all()
     return [
         {
@@ -56,6 +65,8 @@ def fetch_chunks(
             "chunk_index": r.chunk_index,
             "total_chunks": r.total_chunks,
             "content": r.content,
+            "category_id": r.category_id,
+            "candidate_id": r.candidate_id,
         }
         for r in rows
     ]
@@ -87,6 +98,8 @@ def embed_and_upsert(
                 "chunk_index": c["chunk_index"],
                 "total_chunks": c["total_chunks"],
                 "content": c["content"],
+                "category_id": c["category_id"],
+                "candidate_id": c["candidate_id"],
             },
         )
         for c, vector in zip(chunks, vectors, strict=True)
