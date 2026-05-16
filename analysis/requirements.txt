@@ -5,3 +5,4 @@ pandas
 sqlalchemy
 pymysql
 cryptography
+sentence-transformers
