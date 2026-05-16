@@ -9,6 +9,14 @@ from app.domains.candidate.schemas import CandidateList, CandidateRead
 router = APIRouter(prefix="/candidates", tags=["candidates"])
 
 
+def _build_candidate_read(
+    candidate, averages_by_id: dict[int, list]
+) -> CandidateRead:
+    read = CandidateRead.model_validate(candidate)
+    read.category_averages = averages_by_id.get(candidate.id, [])
+    return read
+
+
 @router.get("", response_model=CandidateList)
 @limiter.limit(PUBLIC_RATE_LIMIT)
 async def list_candidates(
@@ -18,8 +26,11 @@ async def list_candidates(
     db: AsyncSession = Depends(get_db),
 ) -> CandidateList:
     candidates, total = await service.list_candidates(db, limit, offset)
+    averages_by_id = await service.get_category_averages_by_candidate(
+        db, [c.id for c in candidates]
+    )
     return CandidateList(
-        items=[CandidateRead.model_validate(c) for c in candidates],
+        items=[_build_candidate_read(c, averages_by_id) for c in candidates],
         total=total,
         limit=limit,
         offset=offset,
@@ -37,4 +48,7 @@ async def get_candidate(
         candidate = await service.get_candidate(db, candidate_id)
     except service.CandidateNotFoundError as e:
         raise HTTPException(status.HTTP_404_NOT_FOUND, str(e))
-    return CandidateRead.model_validate(candidate)
+    averages_by_id = await service.get_category_averages_by_candidate(
+        db, [candidate.id]
+    )
+    return _build_candidate_read(candidate, averages_by_id)

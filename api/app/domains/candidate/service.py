@@ -1,7 +1,13 @@
+from collections.abc import Iterable
+
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domains.candidate.models import Candidate
+from app.domains.candidate.schemas import CategoryAverage
+from app.domains.category.models import Category
+from app.domains.posture.models import Posture
+from app.domains.proposal.models import Proposal
 
 
 class CandidateNotFoundError(Exception):
@@ -32,3 +38,70 @@ async def list_candidates(
         .offset(offset)
     )
     return list(result.scalars().all()), total
+
+
+async def get_category_averages_by_candidate(
+    db: AsyncSession, candidate_ids: Iterable[int]
+) -> dict[int, list[CategoryAverage]]:
+    """Return per-category averages of posture.axis_value for each given candidate.
+
+    Aggregates in a single query to avoid N+1 over a page of candidates.
+    Candidates with no rated proposals are simply absent from the result.
+    """
+    ids = list(candidate_ids)
+    if not ids:
+        return {}
+
+    rows = (
+        await db.execute(
+            select(
+                Proposal.candidate_id.label("candidate_id"),
+                Category.id.label("category_id"),
+                Category.name.label("category_name"),
+                Category.weight.label("weight"),
+                Category.negative_pole_name.label("negative_pole_name"),
+                Category.negative_pole_description.label("negative_pole_description"),
+                Category.positive_pole_name.label("positive_pole_name"),
+                Category.positive_pole_description.label("positive_pole_description"),
+                func.avg(Posture.axis_value).label("avg_value"),
+                func.count(func.distinct(Proposal.id)).label("proposals_count"),
+            )
+            .select_from(Proposal)
+            .join(Posture, Posture.proposal_id == Proposal.id)
+            .join(Category, Proposal.category_id == Category.id)
+            .where(
+                Proposal.candidate_id.in_(ids),
+                Proposal.deleted_at.is_(None),
+                Posture.deleted_at.is_(None),
+                Category.deleted_at.is_(None),
+            )
+            .group_by(
+                Proposal.candidate_id,
+                Category.id,
+                Category.name,
+                Category.weight,
+                Category.negative_pole_name,
+                Category.negative_pole_description,
+                Category.positive_pole_name,
+                Category.positive_pole_description,
+            )
+            .order_by(Proposal.candidate_id, Category.id)
+        )
+    ).all()
+
+    averages: dict[int, list[CategoryAverage]] = {}
+    for row in rows:
+        averages.setdefault(row.candidate_id, []).append(
+            CategoryAverage(
+                category_id=row.category_id,
+                category_name=row.category_name,
+                weight=float(row.weight),
+                negative_pole_name=row.negative_pole_name,
+                negative_pole_description=row.negative_pole_description,
+                positive_pole_name=row.positive_pole_name,
+                positive_pole_description=row.positive_pole_description,
+                average=float(row.avg_value),
+                proposals_count=int(row.proposals_count),
+            )
+        )
+    return averages

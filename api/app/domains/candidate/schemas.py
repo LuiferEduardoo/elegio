@@ -1,6 +1,22 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
+
+
+class CategoryAverage(BaseModel):
+    category_id: int
+    category_name: str
+    weight: float
+    negative_pole_name: str
+    negative_pole_description: str
+    positive_pole_name: str
+    positive_pole_description: str
+    average: float = Field(
+        description="Mean of posture.axis_value across the candidate's proposals in this category"
+    )
+    proposals_count: int = Field(
+        ge=0, description="Number of rated proposals contributing to the average"
+    )
 
 
 class CandidateRead(BaseModel):
@@ -16,6 +32,7 @@ class CandidateRead(BaseModel):
     troubles_questions: str | None
     political_spectrum: str | None
     created_at: datetime
+    category_averages: list[CategoryAverage] = []
 
 
 class CandidateList(BaseModel):
