@@ -21,7 +21,3 @@ api_router.include_router(question_router)
 api_router.include_router(response_option_router)
 api_router.include_router(answer_router)
 
-
-@api_router.get("/health", tags=["health"])
-async def health() -> dict[str, str]:
-    return {"status": "ok"}

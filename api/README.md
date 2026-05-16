@@ -16,7 +16,6 @@ Backend FastAPI for **Elegio**, an open-source platform that helps voters choose
 - [Rate limits](#-rate-limits)
 - [Pagination convention](#-pagination-convention)
 - [Endpoint reference](#-endpoint-reference)
-  - [Health](#health)
   - [Tests](#tests)
   - [Test Attempts](#test-attempts)
   - [Candidates](#candidates)
@@ -213,7 +212,6 @@ uvicorn app.main:app --reload
 Useful URLs once the server is up:
 
 - `GET /` — app info (`{"app": "...", "env": "..."}`)
-- `GET /api/v1/health` — health check
 - `GET /docs` — interactive Swagger UI
 - `GET /redoc` — ReDoc UI
 
@@ -332,10 +330,6 @@ Soft-deleted rows (`deleted_at IS NOT NULL`) are filtered out of every list and 
 ## 📚 Endpoint reference
 
 All endpoints are mounted under `/api/v1`. For interactive exploration, run the server and open `/docs`.
-
-### Health
-
-#### `GET /api/v1/health`
 
 Liveness probe.
 
