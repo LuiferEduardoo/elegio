@@ -1,0 +1,27 @@
+INSERT INTO categories (
+    name,
+    weight,
+    negative_pole_name,
+    negative_pole_description,
+    positive_pole_name,
+    positive_pole_description,
+    created_at,
+    updated_at,
+    deleted_at
+) VALUES
+('Corrupción', 1.0, 'punitivo', 'endurecimiento penal y sanción ejemplar como eje', 'preventivo participativo', 'transparencia, datos abiertos y participación ciudadana como eje', NOW(), NOW(), NULL),
+('Paz', 0.7, 'seguridad orden', 'fuerza pública y operaciones militares como vía principal', 'negociacion justicia transicional', 'diálogo, acuerdos y justicia restaurativa como vía principal', NOW(), NOW(), NULL),
+('Economía', 0.8, 'mercado', 'libre mercado, disciplina fiscal y Estado mínimo', 'intervencion estatal', 'Estado activo, redistribución y política industrial', NOW(), NOW(), NULL),
+('Agraria', 0.6, 'agroindustrial', 'agroindustria, productividad y titulación de mercado', 'reforma rural campesina', 'reforma agraria, economía campesina y redistribución de tierra', NOW(), NOW(), NULL),
+('Seguridad', 0.9, 'punitivo militarizado', 'mano dura, aumento de penas y militarización', 'preventivo', 'prevención social, DDHH y seguridad humana', NOW(), NOW(), NULL),
+('Hidrocarburos', 0.4, 'expansion extractiva', 'expansión de exploración y producción', 'transicion acelerada', 'no nuevos contratos y salida del extractivismo', NOW(), NOW(), NULL),
+('Transformación social', 0.6, 'meritocratico individual', 'esfuerzo individual, oportunidades y focalización', 'redistributivo derechos', 'redistribución, derechos universales y enfoques diferenciales', NOW(), NOW(), NULL),
+('Empresas', 0.6, 'facilitacion privada', 'reducción de cargas y desregulación al sector privado', 'regulacion estatal', 'regulación activa, responsabilidad social y empresa pública', NOW(), NOW(), NULL),
+('Energia', 0.4, 'matriz tradicional', 'matriz fósil con transición gradual de mercado', 'transicion planificada', 'transición acelerada con planificación estatal', NOW(), NOW(), NULL),
+('Educación', 0.6, 'mercado eleccion', 'subsidios a la demanda, competencia y libertad de elección', 'publica universal', 'educación pública gratuita y universal como derecho', NOW(), NOW(), NULL),
+('Infraestructura', 0.5, 'concesiones app', 'concesiones, APP y grandes obras lideradas por privados', 'inversion publica directa', 'inversión pública directa y obras de cercanía', NOW(), NOW(), NULL),
+('Política exterior', 0.3, 'alineacion occidental', 'alineación con EE.UU. y bloque occidental', 'diversificacion sur global', 'integración regional y relaciones con Sur Global', NOW(), NOW(), NULL),
+('Tecnología', 0.3, 'apertura mercado', 'apertura al mercado global y atracción de inversión privada', 'soberania digital', 'soberanía digital, regulación fuerte y desarrollo estatal', NOW(), NOW(), NULL),
+('Territorio, regiones y descentralización', 0.5, 'centralizacion', 'centralización fiscal y administrativa', 'descentralizacion autonomia', 'descentralización, autonomía territorial y enfoque regional', NOW(), NOW(), NULL),
+('Naturaleza', 0.5, 'uso productivo', 'uso productivo de recursos con mitigación de mercado', 'proteccion derechos naturaleza', 'protección ambiental y derechos de la naturaleza', NOW(), NOW(), NULL),
+('Salud', 0.9, 'mercado aseguramiento', 'aseguramiento privado en competencia regulada', 'publico unificado', 'sistema público unificado de prestación directa', NOW(), NOW(), NULL);
