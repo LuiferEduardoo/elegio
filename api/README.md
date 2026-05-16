@@ -507,7 +507,20 @@ Response `200 OK`:
       "photo_vice_president": "https://cdn.elegio.app/vp/1.jpg",
       "troubles_questions": null,
       "political_spectrum": "center-left",
-      "created_at": "2026-04-01T12:00:00"
+      "created_at": "2026-04-01T12:00:00",
+      "category_averages": [
+        {
+          "category_id": 3,
+          "category_name": "Educación",
+          "weight": 1.5,
+          "negative_pole_name": "Mercado",
+          "negative_pole_description": "Educación gestionada por el sector privado y la competencia.",
+          "positive_pole_name": "Estado",
+          "positive_pole_description": "Educación pública, gratuita y gestionada por el Estado.",
+          "average": 0.65,
+          "proposals_count": 4
+        }
+      ]
     }
   ],
   "total": 12,
@@ -515,6 +528,19 @@ Response `200 OK`:
   "offset": 0
 }
 ```
+
+Each candidate carries a `category_averages` array — a per-category roll-up of every `Posture` attached to that candidate's proposals. Each entry exposes the category's axis metadata (`weight`, `negative_pole_*`, `positive_pole_*`) plus:
+
+| Field             | Type    | Description                                                                                  |
+| ----------------- | ------- | -------------------------------------------------------------------------------------------- |
+| `average`         | `float` | Mean of `posture.axis_value` over the candidate's proposals in this category (`[-1, +1]`).   |
+| `proposals_count` | `int`   | Number of distinct proposals contributing to `average`.                                       |
+
+Notes:
+
+- The aggregation runs in a single `GROUP BY candidate_id, category_id` query over the candidates on the current page — no N+1.
+- Candidates with no rated proposals get `category_averages: []`.
+- Soft-deleted proposals, postures, and categories are excluded.
 
 #### `GET /api/v1/candidates/{candidate_id}`
 
@@ -524,7 +550,7 @@ Fetch one candidate.
 - **Rate limit**: `100/minute`
 - **Path**: `candidate_id` (int, `> 0`)
 
-Response `200 OK`: same shape as one item above.
+Response `200 OK`: same shape as one item above, including the `category_averages` array.
 
 Errors:
 
@@ -1026,7 +1052,21 @@ The algorithm — implemented in [`service.get_affinity`](app/domains/answer/ser
 
 Only categories present in **both** vectors are compared (`categories_compared`). Candidates with zero shared categories are dropped. Results are sorted by `affinity DESC`.
 
-- **Auth**: required
+Filtering rules applied throughout the aggregation:
+
+- Answers without a `response_option_id` (i.e. boolean / open-text answers) are ignored.
+- Questions without a `category_id` are ignored.
+- Soft-deleted rows are excluded on `Answer`, `Question`, `Proposal`, `Posture`, and `Candidate`.
+
+The response shape — defined by [`AffinityResponse`](app/domains/answer/schemas.py) (`CategoryAverage`, `CandidateAffinity`) — degrades gracefully:
+
+| State                                                                  | `user_averages` | `candidates` |
+| ---------------------------------------------------------------------- | --------------- | ------------ |
+| User has not answered any categorized closed question yet              | `[]`            | `[]`         |
+| User has answered, but no candidate has postures in those categories   | populated       | `[]`         |
+| Both vectors overlap on ≥ 1 category                                   | populated       | populated    |
+
+- **Auth**: required (uses `test_attempt_uuid` from the JWT, like the other answer endpoints)
 - **Rate limit**: `500/minute`
 
 Response `200 OK`:
@@ -1066,7 +1106,7 @@ Response `200 OK`:
 }
 ```
 
-When the user has not answered any closed question yet, `user_averages` and `candidates` are both empty arrays (the endpoint still returns `200 OK`).
+All graceful-degradation states above still return `200 OK` — only a missing test attempt yields an error.
 
 Errors:
 
