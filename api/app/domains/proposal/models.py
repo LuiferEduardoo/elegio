@@ -9,6 +9,7 @@ from app.domains.category.models import Category
 
 if TYPE_CHECKING:
     from app.domains.posture.models import Posture
+    from app.domains.proposal_chunk.models import ProposalChunk
     from app.domains.source.models import Source
     from app.domains.tagging.models import Tagging
 
@@ -32,3 +33,4 @@ class Proposal(Base, TimestampMixin):
     postures: Mapped[list["Posture"]] = relationship(back_populates="proposal")
     taggings: Mapped[list["Tagging"]] = relationship(back_populates="proposal")
     sources: Mapped[list["Source"]] = relationship(back_populates="proposal")
+    chunks: Mapped[list["ProposalChunk"]] = relationship(back_populates="proposal")
