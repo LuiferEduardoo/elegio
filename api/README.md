@@ -7,6 +7,7 @@ Backend FastAPI for **Elegio**, an open-source platform that helps voters choose
 ## Table of contents
 
 - [Overview](#overview)
+- [End-to-end flow](#-end-to-end-flow)
 - [Tech stack](#-tech-stack)
 - [Project structure](#-project-structure)
 - [Setup](#-setup)
@@ -44,7 +45,45 @@ This API exposes the REST endpoints behind that flow:
 
 - Public, read-only endpoints for the catalogue (tests, questions, candidates, proposals, government plans).
 - A bootstrap endpoint that creates a `Visitor` + `Session` + `TestAttempt` and returns a JWT scoped to the attempt.
-- Authenticated endpoints for writing answers and tracking events tied to that attempt.
+- Authenticated endpoints for writing answers, tracking events, and computing candidate affinity for that attempt.
+
+---
+
+## 🔁 End-to-end flow
+
+A typical client integration looks like this:
+
+```
+┌──────────┐                                              ┌──────────┐
+│  Client  │                                              │   API    │
+└────┬─────┘                                              └────┬─────┘
+     │  1. GET /api/v1/tests                                   │
+     │ ──────────────────────────────────────────────────────► │
+     │ ◄────────────────────────────────────────────────────── │  list of tests
+     │                                                         │
+     │  2. POST /api/v1/test-attempts/initialize { test_id }   │
+     │ ──────────────────────────────────────────────────────► │  creates Visitor + Session + TestAttempt
+     │ ◄────────────────────────────────────────────────────── │  returns { test_attempt, visitor_id, token }
+     │                                                         │
+     │  3. GET /api/v1/questions/by-test/{test_id}             │
+     │ ──────────────────────────────────────────────────────► │
+     │ ◄────────────────────────────────────────────────────── │  ordered questions + categories
+     │                                                         │
+     │  4. GET /api/v1/response-options/question/{id}          │
+     │ ──────────────────────────────────────────────────────► │
+     │ ◄────────────────────────────────────────────────────── │  options for the current question
+     │                                                         │
+     │  5. POST /api/v1/answers          (Bearer <token>)      │
+     │ ──────────────────────────────────────────────────────► │  loops over the questions
+     │ ◄────────────────────────────────────────────────────── │  { answer, test_completed, status }
+     │                                                         │
+     │  6. GET /api/v1/answers/affinity  (Bearer <token>)      │
+     │ ──────────────────────────────────────────────────────► │  computes weighted Manhattan affinity
+     │ ◄────────────────────────────────────────────────────── │  ranked candidates with affinity score
+     │                                                         │
+```
+
+Steps 1, 3, and 4 are public. Steps 2, 5, and 6 require the JWT issued in step 2 to be sent as `Authorization: Bearer <token>`. The test attempt auto-completes on step 5 once every active question of the test has been answered (see [Answers](#answers)).
 
 ---
 
@@ -342,6 +381,8 @@ Response `200 OK`:
   "offset": 0
 }
 ```
+
+> ⚠ The `Test` resource is the only one that exposes Spanish field names (`nombre`, `descripcion`) — the rest of the API uses English. These names mirror the underlying column names and are kept stable for backward compatibility with the existing seed data.
 
 Errors: `429 Too Many Requests`.
 
@@ -976,6 +1017,70 @@ Response `200 OK`:
 ```
 
 Errors: `401` for missing/invalid tokens; `429` rate limit.
+
+#### `GET /api/v1/answers/affinity`
+
+Compute the affinity between the current test attempt and every candidate that has at least one posture in a category the user actually answered.
+
+The algorithm — implemented in [`service.get_affinity`](app/domains/answer/service.py) — works as follows:
+
+1. **User vector** — for every category in which the user answered at least one question, compute `user_avg[c] = mean(response_option.value)`.
+2. **Candidate vector** — for every candidate, compute `candidate_avg[c] = mean(posture.axis_value)` over their proposals in the same categories.
+3. **Weighted Manhattan distance** — `distance = Σ |user_avg[c] − candidate_avg[c]| × weight[c]`.
+4. **Normalized affinity** — axis values are in `[-1, +1]`, so the max possible per-category gap is `2`. The score is normalized to `[0, 1]`:
+   `affinity = 1 − distance / Σ (2 × weight[c])`.
+
+Only categories present in **both** vectors are compared (`categories_compared`). Candidates with zero shared categories are dropped. Results are sorted by `affinity DESC`.
+
+- **Auth**: required
+- **Rate limit**: `500/minute`
+
+Response `200 OK`:
+
+```json
+{
+  "test_attempt_uuid": "9f1c4b0e-2d48-4e85-9a1a-72ae8b1a55b3",
+  "user_averages": [
+    {
+      "category_id": 3,
+      "category_name": "Educación",
+      "weight": 1.5,
+      "average": 0.6
+    },
+    {
+      "category_id": 5,
+      "category_name": "Economía",
+      "weight": 1.0,
+      "average": -0.2
+    }
+  ],
+  "candidates": [
+    {
+      "candidate_id": 1,
+      "presidential_candidate": "Jane Doe",
+      "vice_presidential_candidate": "John Roe",
+      "political_group": "Partido Ejemplo",
+      "political_spectrum": "center-left",
+      "photo_president": "https://cdn.elegio.app/p/1.jpg",
+      "photo_vice_president": "https://cdn.elegio.app/vp/1.jpg",
+      "photo_of_political_group": "https://cdn.elegio.app/groups/1.png",
+      "affinity": 0.82,
+      "distance": 0.9,
+      "categories_compared": 2
+    }
+  ]
+}
+```
+
+When the user has not answered any closed question yet, `user_averages` and `candidates` are both empty arrays (the endpoint still returns `200 OK`).
+
+Errors:
+
+| Status | When                                                  |
+| ------ | ----------------------------------------------------- |
+| `401`  | Missing / invalid token                               |
+| `404`  | Test attempt referenced by the token does not exist   |
+| `429`  | Rate limit exceeded                                   |
 
 ---
 
