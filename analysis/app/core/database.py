@@ -38,6 +38,31 @@ proposals_table = Table(
     Column("candidate_id", Integer, ForeignKey("candidates.id"), nullable=False),
 )
 
+proposal_chunks_table = Table(
+    "proposal_chunks",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column(
+        "proposal_id",
+        Integer,
+        ForeignKey("proposals.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    ),
+    Column("chunk_index", Integer, nullable=False),
+    Column("total_chunks", Integer, nullable=False),
+    Column("content", Text, nullable=False),
+    Column("created_at", DateTime, server_default=func.now(), nullable=False),
+    Column(
+        "updated_at",
+        DateTime,
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    ),
+    Column("deleted_at", DateTime, nullable=True),
+)
+
 postures_table = Table(
     "postures",
     metadata,
