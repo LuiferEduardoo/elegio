@@ -9,7 +9,7 @@ INSERT INTO government_plans (
 ((SELECT id FROM candidates WHERE presidential_candidate = 'Abelardo Gabriel de la Espriella'), 'https://defensoresdelapatria.com/', NOW(), NOW(), NULL),
 ((SELECT id FROM candidates WHERE presidential_candidate = 'Paloma Susana Valencia Laserna'), 'https://palomapresidente.com.co/', NOW(), NOW(), NULL),
 ((SELECT id FROM candidates WHERE presidential_candidate = 'Óscar Mauricio Lizcano Arango'), 'https://www.elespectador.com/politica/elecciones-colombia-2026/propuestas-de-mauricio-lizcano-este-es-su-plan-de-gobierno-sobre-seguridad-salud-y-reforma-tributaria-noticias-hoy/', NOW(), NOW(), NULL),
-((SELECT id FROM candidates WHERE presidential_candidate = 'Raúl Santiago Botero Jaramillo'), 'https://romperelsistema.com/programa', NOW(), NOW(), NULL),
+((SELECT id FROM candidates WHERE presidential_candidate = 'Raúl Santiago Botero Jaramillo'), 'https://santiagobotero.com/programa', NOW(), NOW(), NULL),
 ((SELECT id FROM candidates WHERE presidential_candidate = 'Miguel Uribe Londoño'), 'https://migueluribe.com/', NOW(), NOW(), NULL),
 ((SELECT id FROM candidates WHERE presidential_candidate = 'Sondra Macollins Garvin Pinto'), 'https://sondramacollins.com', NOW(), NOW(), NULL),
 ((SELECT id FROM candidates WHERE presidential_candidate = 'Claudia Nayibe López Hernández'), 'https://claudia-lopez.com/campana/', NOW(), NOW(), NULL),
