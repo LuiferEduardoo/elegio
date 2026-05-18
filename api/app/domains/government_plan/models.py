@@ -1,4 +1,4 @@
-from sqlalchemy import ForeignKey
+from sqlalchemy import ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base, TimestampMixin
@@ -12,5 +12,7 @@ class GovernmentPlan(Base, TimestampMixin):
     candidate_id: Mapped[int] = mapped_column(
         ForeignKey("candidates.id", ondelete="CASCADE"), nullable=False
     )
+
+    url: Mapped[str] = mapped_column(String(255), nullable=False)
 
     candidate: Mapped[Candidate] = relationship()
