@@ -25,6 +25,15 @@ categories_table = Table(
     Column("id", Integer, primary_key=True, autoincrement=True),
     Column("name", String(255), nullable=False),
     Column("weight", Float, nullable=False),
+    Column("created_at", DateTime, server_default=func.now(), nullable=False),
+    Column(
+        "updated_at",
+        DateTime,
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    ),
+    Column("deleted_at", DateTime, nullable=True),
 )
 
 proposals_table = Table(
@@ -36,6 +45,15 @@ proposals_table = Table(
     Column("full_text", Text),
     Column("category_id", Integer, ForeignKey("categories.id"), nullable=False),
     Column("candidate_id", Integer, ForeignKey("candidates.id"), nullable=False),
+    Column("created_at", DateTime, server_default=func.now(), nullable=False),
+    Column(
+        "updated_at",
+        DateTime,
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    ),
+    Column("deleted_at", DateTime, nullable=True),
 )
 
 proposal_chunks_table = Table(
