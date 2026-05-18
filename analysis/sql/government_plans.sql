@@ -1,6 +1,6 @@
 INSERT INTO government_plans (
     candidate_id,
-    plan_url,
+    url,
     created_at,
     updated_at,
     deleted_at
@@ -15,6 +15,5 @@ INSERT INTO government_plans (
 ((SELECT id FROM candidates WHERE presidential_candidate = 'Claudia Nayibe López Hernández'), 'https://claudia-lopez.com/campana/', NOW(), NOW(), NULL),
 ((SELECT id FROM candidates WHERE presidential_candidate = 'Sergio Fajardo Valderrama'), 'https://www.sergiofajardo.com/propuestas', NOW(), NOW(), NULL),
 ((SELECT id FROM candidates WHERE presidential_candidate = 'Roy Leonardo Barreras Montealegre'), 'https://roybarreras.com/#propuestas', NOW(), NOW(), NULL),
-((SELECT id FROM candidates WHERE presidential_candidate = 'Gustavo Matamoros Camacho'), NULL, NOW(), NOW(), NULL),
 ((SELECT id FROM candidates WHERE presidential_candidate = 'Luis Gilberto Murillo Urrutia'), 'https://www.instagram.com/p/DU_ZiZ-kcj1/?img_index=7', NOW(), NOW(), NULL),
 ((SELECT id FROM candidates WHERE presidential_candidate = 'Carlos Eduardo Caicedo Omar'), 'https://fuerzaciudadana.com.co/nuestro-proyecto', NOW(), NOW(), NULL);
