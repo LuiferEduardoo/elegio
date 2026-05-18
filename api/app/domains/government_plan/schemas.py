@@ -20,6 +20,7 @@ class GovernmentPlanRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
+    url: str
     candidate: CandidateInGovernmentPlan
     created_at: datetime
 
