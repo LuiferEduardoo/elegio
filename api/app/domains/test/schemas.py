@@ -7,8 +7,8 @@ class TestRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
-    nombre: str
-    descripcion: str | None
+    name: str
+    description: str | None
     created_at: datetime
 
 
