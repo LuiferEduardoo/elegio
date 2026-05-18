@@ -1,5 +1,5 @@
 RUBRICS = {
-    "corrupcion": {
+    "Corrupción": {
         "polo_negativo": {
             "nombre": "punitivo",
             "descripcion": "endurecimiento penal y sanción ejemplar como eje"
@@ -24,7 +24,7 @@ RUBRICS = {
         }
     },
 
-    "paz": {
+    "Paz": {
         "polo_negativo": {
             "nombre": "seguridad-orden",
             "descripcion": "fuerza pública y operaciones militares como vía principal"
@@ -48,7 +48,7 @@ RUBRICS = {
         }
     },
 
-    "economia": {
+    "Economía": {
         "polo_negativo": {
             "nombre": "mercado",
             "descripcion": "libre mercado, disciplina fiscal y Estado mínimo"
@@ -72,7 +72,7 @@ RUBRICS = {
         }
     },
 
-    "agraria": {
+    "Agraria": {
         "polo_negativo": {
             "nombre": "agroindustrial",
             "descripcion": "agroindustria, productividad y titulación de mercado"
@@ -94,7 +94,7 @@ RUBRICS = {
         }
     },
 
-    "seguridad": {
+    "Seguridad": {
         "polo_negativo": {
             "nombre": "punitivo-militarizado",
             "descripcion": "mano dura, aumento de penas y militarización"
@@ -117,7 +117,7 @@ RUBRICS = {
         }
     },
 
-    "hidrocarburos": {
+    "Hidrocarburos": {
         "polo_negativo": {
             "nombre": "expansion-extractiva",
             "descripcion": "expansión de exploración y producción"
@@ -141,7 +141,7 @@ RUBRICS = {
         }
     },
 
-    "transformacion_social": {
+    "Transformación social": {
         "polo_negativo": {
             "nombre": "meritocratico-individual",
             "descripcion": "esfuerzo individual, oportunidades y focalización"
@@ -165,7 +165,7 @@ RUBRICS = {
         }
     },
 
-    "empresas": {
+    "Empresas": {
         "polo_negativo": {
             "nombre": "facilitacion-privada",
             "descripcion": "reducción de cargas y desregulación al sector privado"
@@ -191,7 +191,7 @@ RUBRICS = {
         }
     },
 
-    "energia": {
+    "Energia": {
         "polo_negativo": {
             "nombre": "matriz-tradicional",
             "descripcion": "matriz fósil con transición gradual de mercado"
@@ -214,7 +214,7 @@ RUBRICS = {
         }
     },
 
-    "educacion": {
+    "Educación": {
         "polo_negativo": {
             "nombre": "mercado-eleccion",
             "descripcion": "subsidios a la demanda, competencia y libertad de elección"
@@ -238,7 +238,7 @@ RUBRICS = {
         }
     },
 
-    "infraestructura": {
+    "Infraestructura": {
         "polo_negativo": {
             "nombre": "concesiones-app",
             "descripcion": "concesiones, APP y grandes obras lideradas por privados"
@@ -263,7 +263,7 @@ RUBRICS = {
         }
     },
 
-    "politica_exterior": {
+    "Política exterior": {
         "polo_negativo": {
             "nombre": "alineacion-occidental",
             "descripcion": "alineación con EE.UU. y bloque occidental"
@@ -287,7 +287,7 @@ RUBRICS = {
         }
     },
 
-    "tecnologia": {
+    "Tecnología": {
         "polo_negativo": {
             "nombre": "apertura-mercado",
             "descripcion": "apertura al mercado global y atracción de inversión privada"
@@ -311,7 +311,7 @@ RUBRICS = {
         }
     },
 
-    "territorio": {
+    "Territorio, regiones y descentralización": {
         "polo_negativo": {
             "nombre": "centralizacion",
             "descripcion": "centralización fiscal y administrativa"
@@ -336,7 +336,7 @@ RUBRICS = {
         }
     },
 
-    "naturaleza": {
+    "Naturaleza": {
         "polo_negativo": {
             "nombre": "uso-productivo",
             "descripcion": "uso productivo de recursos con mitigación de mercado"
@@ -360,7 +360,7 @@ RUBRICS = {
         }
     },
 
-    "salud": {
+    "Salud": {
         "polo_negativo": {
             "nombre": "mercado-aseguramiento",
             "descripcion": "aseguramiento privado en competencia regulada"
