@@ -6,7 +6,7 @@ from app.domains.posture_proposal.schemas import QualificationLLM
 
 
 class GeminiClassifier:
-    def __init__(self, model: str = "gemini-2.5-flash"):
+    def __init__(self, model: str = "gemini-2.5-pro"):
         self.client = genai.Client(api_key=settings.gemini_api_key)
         self.model = model
 

@@ -54,7 +54,7 @@ def get_pending_proposals(conn: Connection) -> list[ProposalRead]:
 
 
 def main() -> None:
-    classifier = GeminiClassifier(model="gemini-2.5-flash")
+    classifier = GeminiClassifier(model="gemini-2.5-pro")
 
     with engine.connect() as conn:
         service = PostureService(conn, classifier)
