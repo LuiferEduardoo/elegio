@@ -2,6 +2,8 @@
 
 Offline Python tool that uses **Google Gemini** to classify (rate) the political proposals stored by the [Elegio API](../api) on a `-1.0` / `+1.0` descriptive axis. For every proposal that does not yet have a `Posture`, the tool builds a category-specific prompt, asks Gemini for a JSON-structured rating, and writes the result back into the same MySQL database the API uses. It is a **batch script**, not a service: there is no HTTP server and no public API surface.
 
+This service also owns the **chunking + embedding pipelines** that feed the API's hybrid search endpoint: it splits proposals into paragraph-aware chunks, embeds them with `intfloat/multilingual-e5-large`, and upserts the vectors into a Qdrant collection that the API queries at search time.
+
 ---
 
 ## Table of contents
@@ -46,6 +48,8 @@ Human reviewers can later add their own postures (with `coder_type = "human"`) f
 - **Pydantic v2** — schemas for the LLM response and the in-memory proposal/category models
 - **python-dotenv** — loads `.env` into process environment
 - **pandas** — available for ad-hoc data exploration scripts (not used by `rate_batch` itself)
+- **sentence-transformers** + **intfloat/multilingual-e5-large** — 1024-dim multilingual embeddings used by the chunking/embedding pipeline
+- **qdrant-client** — pushes the embeddings into a local Qdrant instance (the same one the API queries)
 
 > Unlike the [API](../api), this project uses **sync** SQLAlchemy. There is no async loop and no ORM session; data access goes through SQLAlchemy Core (`Table`, `select`, `insert`).
 
@@ -59,16 +63,26 @@ analysis/
 │   ├── __init__.py
 │   ├── config.py                       # Settings loader (.env → pydantic model)
 │   ├── core/
-│   │   ├── database.py                 # Sync engine + Core Tables (categories, proposals, postures)
-│   │   └── gemini_client.py            # GeminiClassifier wrapper around google-genai
+│   │   ├── database.py                 # Sync engine + Core Tables (categories, proposals, postures, proposal_chunks)
+│   │   ├── gemini_client.py            # GeminiClassifier wrapper around google-genai
+│   │   ├── embedder.py                 # Embedder wrapper around sentence-transformers (multilingual-e5-large)
+│   │   └── qdrant_client.py            # Qdrant client + ensure_collection() helper
 │   └── domains/
-│       └── posture_proposal/
-│           ├── prompt.py               # build_prompt(category, text) → Spanish prompt
-│           ├── rubrics.py              # RUBRICS dict: per-category poles + numeric anchors
-│           ├── schemas.py              # Pydantic models (QualificationLLM, ProposalRead, ...)
-│           └── service.py              # PostureService.rate_proposal(proposal)
+│       ├── posture_proposal/
+│       │   ├── prompt.py               # build_prompt(category, text) → Spanish prompt
+│       │   ├── rubrics.py              # RUBRICS dict: per-category poles + numeric anchors
+│       │   ├── schemas.py              # Pydantic models (QualificationLLM, ProposalRead, ...)
+│       │   └── service.py              # PostureService.rate_proposal(proposal)
+│       └── proposal_chunk/
+│           ├── chunker.py              # Paragraph-aware chunking (target/max/overlap in words)
+│           ├── embedding.py            # MySQL → Qdrant glue (fetch_chunks, embed_and_upsert, ...)
+│           ├── schemas.py
+│           └── service.py              # chunk_and_insert + get_pending_proposals
+├── docker-compose.dev.yml              # Local Qdrant instance (ports 6333 REST, 6334 gRPC)
 ├── scripts/
-│   └── rate_batch.py                   # Entry point: classify every pending proposal
+│   ├── rate_batch.py                   # Entry point: classify every pending proposal
+│   ├── chunk_proposals.py              # Entry point: split proposals into proposal_chunks rows
+│   └── embed_chunks.py                 # Entry point: embed chunks and upsert them into Qdrant
 ├── main.py                             # Smoke test for the Gemini client
 ├── requirements.txt
 ├── .env.example
@@ -109,6 +123,53 @@ Gemini is forced to return JSON matching [`QualificationLLM`](app/domains/postur
 
 The prompt asks the model to keep the score close to `0` with `low` confidence whenever the proposal is vague, mixed, or only tangential to the axis.
 
+### Chunking pipeline
+
+```
+┌──────────────────┐   ┌────────────────┐   ┌──────────────────┐
+│ proposals (DB)   │──▶│  chunk_text()  │──▶│ proposal_chunks  │
+│ no chunks yet    │   │ paragraph-     │   │ (DB)             │
+└──────────────────┘   │ aware splitter │   └──────────────────┘
+                       └────────────────┘
+```
+
+1. **Select proposals without chunks.** [`get_pending_proposals`](app/domains/proposal_chunk/service.py) returns proposals that do not yet have any `proposal_chunks` row. The batch is **idempotent** — rerunning it never re-chunks a proposal that already has chunks. To re-chunk, hard-delete its `proposal_chunks` rows first.
+2. **Split the text.** [`chunk_text`](app/domains/proposal_chunk/chunker.py) packs paragraphs greedily until a chunk reaches the target word count, then seeds the next chunk with an overlap window so context is preserved across boundaries. The current defaults are:
+
+   | Knob              | Value      | Notes                                                                             |
+   | ----------------- | ---------: | --------------------------------------------------------------------------------- |
+   | `TARGET_WORDS`    | `150`      | ~200 tokens of Spanish text (Gemini's rough 1.33 tokens/word ratio).              |
+   | `MAX_WORDS`       | `300`      | Hard ceiling per chunk; a paragraph longer than this is window-split standalone.  |
+   | `OVERLAP_WORDS`   | `20`       | Tail of the previous chunk reused as the head of the next.                        |
+   | `MIN_SPLIT_WORDS` | `150`      | Inputs shorter than this are returned as a single chunk (no splitting at all).    |
+
+3. **Persist.** `chunk_and_insert` writes one `proposal_chunks` row per chunk with `chunk_index` (0-based) and `total_chunks`. Soft-deleted proposals are skipped.
+
+### Embedding pipeline
+
+```
+┌──────────────────┐   ┌──────────────────┐   ┌──────────────────┐
+│ proposal_chunks  │──▶│ Embedder.embed_  │──▶│ Qdrant           │
+│ JOIN proposals   │   │ passages (1024d) │   │ proposal_chunks  │
+└──────────────────┘   └──────────────────┘   └──────────────────┘
+```
+
+1. **Diff against Qdrant.** [`scripts/embed_chunks.py`](scripts/embed_chunks.py) lists every non-deleted chunk id in MySQL, asks Qdrant which of those ids already exist as points, and processes only the difference. The Qdrant point id is the MySQL chunk id, so the operation is **naturally idempotent** — rerunning the script never re-embeds a chunk that is already stored.
+2. **Fetch with context.** [`fetch_chunks`](app/domains/proposal_chunk/embedding.py) joins `proposal_chunks` with `proposals` so each Qdrant point's payload carries `proposal_id`, `chunk_index`, `total_chunks`, `content`, `category_id`, and `candidate_id`. The last two fields are what enables the API's filtered search (`?category_id=` / `?candidate_id=`).
+3. **Embed in batches.** The [`Embedder`](app/core/embedder.py) wraps `intfloat/multilingual-e5-large` (1024-dim, L2-normalized). The E5 family requires task-specific prefixes — `"passage: "` for documents, `"query: "` for searches — and the wrapper adds them automatically. Documents and queries must use the **same** model, otherwise dot-product similarity is meaningless. Batch size is `64`.
+4. **Upsert.** Points are upserted into the `proposal_chunks` Qdrant collection (`Distance.COSINE`, 1024-dim). The collection is created on demand by [`ensure_collection`](app/core/qdrant_client.py).
+
+### End-to-end flow
+
+```
+docker compose -f docker-compose.dev.yml up -d        # 1. Start Qdrant
+python -m scripts.chunk_proposals                     # 2. Split proposals into proposal_chunks rows
+python -m scripts.embed_chunks                        # 3. Embed chunks and upsert into Qdrant
+# 4. (Re)start the API — it picks up new chunks on its lifespan hook (see api/README.md)
+```
+
+Step 4 matters because the API's BM25 index has no auto-invalidation: the API must be restarted for newly embedded chunks to be searchable lexically. Qdrant is queried directly so dense results pick them up immediately.
+
 ---
 
 ## 📦 Setup
@@ -118,6 +179,7 @@ The prompt asks the model to keep the score close to `0` with `low` confidence w
 - **Python 3.12**
 - A running **MySQL 8** instance with the Elegio schema applied. The easiest path is to start the API's bundled docker-compose (see [api/README.md → Setup](../api/README.md#-setup)) and run `alembic upgrade head` from `api/`. `analysis/` will read and write the same database.
 - A **Google AI Studio API key** for Gemini (`GEMINI_API_KEY`).
+- **Docker** and **Docker Compose** to run the local **Qdrant** instance (only needed for `embed_chunks.py` and for the API's search endpoint — not required by `rate_batch.py`).
 
 ### 1. Install dependencies
 
@@ -144,7 +206,22 @@ DATABASE_URL=mysql+pymysql://elegio_user:elegio_password@localhost:3306/elegio
 
 > `DATABASE_URL` **must** point to the same database the API uses. `analysis/` does not run migrations — it expects the schema to already exist.
 
-### 3. Smoke-test the Gemini client (optional)
+### 3. Start Qdrant with Docker Compose (optional — required for embedding)
+
+[docker-compose.dev.yml](docker-compose.dev.yml) ships a single-node Qdrant instance with a persistent volume (`qdrant_data`):
+
+```bash
+docker compose -f docker-compose.dev.yml up -d
+```
+
+It exposes:
+
+- `6333` — REST API and dashboard ([http://localhost:6333/dashboard](http://localhost:6333/dashboard))
+- `6334` — gRPC port
+
+The `proposal_chunks` collection is created on demand by [`ensure_collection`](app/core/qdrant_client.py) the first time `embed_chunks.py` runs (`Distance.COSINE`, 1024-dim).
+
+### 4. Smoke-test the Gemini client (optional)
 
 ```bash
 python main.py
@@ -169,8 +246,10 @@ Loaded from `analysis/.env` via [`Settings`](app/config.py) (Pydantic v2). See [
 | ---------------- | :------: | ------- | --------------------------------------------------------------------------- |
 | `GEMINI_API_KEY` |  **yes** | —       | Google AI Studio API key. Used to authenticate the `google-genai` client.   |
 | `DATABASE_URL`   |  **yes** | —       | Sync MySQL URL — `mysql+pymysql://user:pass@host:3306/elegio`               |
+| `QDRANT_URL`     |  **yes** | —       | URL of the Qdrant instance — defaults to `http://localhost:6333` in `.env.example`. Used by `embed_chunks.py`. |
+| `QDRANT_API_KEY` |    no    | `""`    | Optional Qdrant API key. Leave empty for the local docker-compose instance. |
 
-Both fields are validated as `min_length=1`, so an empty value at startup raises a Pydantic `ValidationError`.
+`GEMINI_API_KEY`, `DATABASE_URL`, and `QDRANT_URL` are validated as `min_length=1`, so an empty value at startup raises a Pydantic `ValidationError`.
 
 ---
 
@@ -213,6 +292,37 @@ classifier = GeminiClassifier(model="gemini-2.5-pro")
 
 The chosen model name is stored verbatim in `postures.coder_name`, so changing the model produces postures attributable to that specific model.
 
+### Chunking proposals — `scripts/chunk_proposals.py`
+
+```bash
+python -m scripts.chunk_proposals
+```
+
+The script:
+
+1. Prints `Pending proposals: N` (proposals with no chunks yet).
+2. For each proposal, prints `[i/N] · Proposal <id>: <n> chunk(s)` on success, or `[i/N] ∅ Proposal <id>: 0 chunk(s)` if the proposal had no embeddable text. Errors print `[i/N] x Proposal <id>: <error>`, the connection is rolled back, and the loop continues.
+3. At the end, prints `Total chunks created: <N>` plus a summary of any failures.
+
+Idempotent: only proposals that do not yet have any `proposal_chunks` row are processed. To re-chunk a proposal, hard-delete its existing rows first.
+
+### Embedding chunks — `scripts/embed_chunks.py`
+
+```bash
+python -m scripts.embed_chunks
+```
+
+The script:
+
+1. Calls `ensure_collection` to create the `proposal_chunks` Qdrant collection on first run.
+2. Lists every non-deleted chunk id in MySQL, asks Qdrant which ids are already present, and prints the totals (`Total chunks in MySQL`, `Already in Qdrant`, `Pending`).
+3. Embeds and upserts the pending chunks in batches of `64`, printing `[batch/total] · upserted <n> chunks` per batch. A failed batch is reported but does not stop the loop.
+4. At the end, prints `Total upserted: <N>` plus a summary of any failed batches.
+
+Idempotent: the Qdrant point id equals the MySQL chunk id, so re-running the script never re-embeds a chunk that is already stored.
+
+> **Restart the API after embedding.** The API's BM25 index is built at startup from `proposal_chunks` and has no auto-invalidation. After a successful `embed_chunks` run, restart the API (or call `BM25Index.refresh(db)` programmatically) so the new chunks are searchable lexically too. See [api/README.md](../api/README.md) for details.
+
 ---
 
 ## 🗃 Data model
@@ -221,12 +331,13 @@ The chosen model name is stored verbatim in `postures.coder_name`, so changing t
 
 ### Read
 
-| Source       | Columns used                                                      |
-| ------------ | ----------------------------------------------------------------- |
-| `categories` | `id`, `name`, `weight`                                            |
-| `proposals`  | `id`, `title`, `summary`, `full_text`, `category_id`              |
+| Source             | Columns used                                                                              |
+| ------------------ | ----------------------------------------------------------------------------------------- |
+| `categories`       | `id`, `name`, `weight`                                                                    |
+| `proposals`        | `id`, `title`, `summary`, `full_text`, `category_id`, `candidate_id`                      |
+| `proposal_chunks`  | `id`, `proposal_id`, `chunk_index`, `total_chunks`, `content`, `deleted_at`               |
 
-The query joins `proposals → categories` and left-joins `postures` to pick rows where no posture exists.
+The rating query joins `proposals → categories` and left-joins `postures` to pick rows where no posture exists. The chunking query left-joins `proposal_chunks` to pick proposals with no chunks yet. The embedding query joins `proposal_chunks → proposals` so each Qdrant point's payload can carry the `category_id` and `candidate_id` used by the API's filtered search.
 
 ### Write
 
@@ -246,6 +357,18 @@ Every successful classification inserts a single row into `postures`:
 | `deleted_at`  | `NULL`                                                 | unset                                      |
 
 The `coder_type` / `coder_name` pair is the audit trail the API surfaces for downstream consumers — it lets the UI distinguish LLM-generated postures from human-coded ones.
+
+`chunk_proposals.py` inserts into `proposal_chunks`:
+
+| Column          | Value written                          | Source              |
+| --------------- | -------------------------------------- | ------------------- |
+| `proposal_id`   | the parent proposal's id               | pending-proposals query |
+| `chunk_index`   | 0-based position of the chunk          | `chunk_text` output |
+| `total_chunks`  | number of chunks generated for that proposal | `chunk_text` output |
+| `content`       | the chunk text                         | `chunk_text` output |
+| `created_at` / `updated_at` / `deleted_at` | DB defaults / unset | TimestampMixin     |
+
+`embed_chunks.py` does not touch MySQL — it only writes to Qdrant. Each Qdrant point's id is the MySQL chunk id, and its payload mirrors `proposal_id`, `chunk_index`, `total_chunks`, `content`, `category_id`, and `candidate_id` so the API can filter and hydrate results without round-tripping through MySQL for every hit.
 
 ---
 
@@ -345,6 +468,14 @@ python main.py
 
 # Run the batch classifier
 python -m scripts.rate_batch
+
+# Local Qdrant
+docker compose -f docker-compose.dev.yml up -d
+docker compose -f docker-compose.dev.yml down
+
+# Chunking + embedding pipelines
+python -m scripts.chunk_proposals
+python -m scripts.embed_chunks
 ```
 
 ---
