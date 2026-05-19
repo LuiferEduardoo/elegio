@@ -25,6 +25,7 @@ Backend FastAPI for **Elegio**, an open-source platform that helps voters choose
   - [Response Options](#response-options)
   - [Events](#events)
   - [Answers](#answers)
+  - [Search](#search)
 - [Conventions](#-conventions)
 - [Common commands](#-common-commands)
 - [Code style](#-code-style)
@@ -95,6 +96,9 @@ Steps 1, 3, and 4 are public. Steps 2, 5, and 6 require the JWT issued in step 2
 - **MySQL 8** via `aiomysql` (async) and `pymysql` (sync, used by Alembic)
 - **PyJWT** `2.10` — JWT issuance and validation (HS256)
 - **slowapi** `0.1.9` — IP-based rate limiting
+- **sentence-transformers** `3.3.1` — multilingual E5 embeddings (`intfloat/multilingual-e5-large`, 1024-dim) for the hybrid search endpoint
+- **qdrant-client** `1.13.2` — Qdrant client used to query the `proposal_chunks` vector collection
+- **rank-bm25** `0.2.2` — in-memory BM25 lexical index fused with the dense results via Reciprocal Rank Fusion
 
 ---
 
@@ -112,7 +116,10 @@ api/
 │   │   ├── config.py         # Settings (loads .env via pydantic-settings)
 │   │   ├── database.py       # Async engine, Base, TimestampMixin, get_db()
 │   │   ├── security.py       # JWT helpers + get_token_payload dependency
-│   │   └── rate_limit.py     # slowapi Limiter + PUBLIC/PRIVATE constants
+│   │   ├── rate_limit.py     # slowapi Limiter + PUBLIC/PRIVATE constants
+│   │   ├── embedder.py       # multilingual-e5-large SentenceTransformer singleton
+│   │   ├── qdrant_client.py  # Qdrant client + collection metadata
+│   │   └── bm25_index.py     # In-memory BM25 index over proposal_chunks
 │   └── domains/              # One folder per domain
 │       ├── answer/
 │       ├── candidate/
@@ -121,8 +128,10 @@ api/
 │       ├── government_plan/
 │       ├── posture/
 │       ├── proposal/
+│       ├── proposal_chunk/
 │       ├── question/
 │       ├── response_option/
+│       ├── search/
 │       ├── session/
 │       ├── source/
 │       ├── tagging/
@@ -215,6 +224,13 @@ Useful URLs once the server is up:
 - `GET /docs` — interactive Swagger UI
 - `GET /redoc` — ReDoc UI
 
+> **First-start cost.** The FastAPI [`lifespan`](app/main.py) hook eagerly loads the multilingual-e5-large SentenceTransformer (~1.5 GB RAM per worker; the first start downloads the weights and takes ~30 s) and builds the BM25 index by reading every `proposal_chunks` row joined with non-deleted proposals. Both steps log their timing. If either pre-load fails the API still starts and falls back to lazy loading on the first search request.
+>
+> Operational notes:
+> - With `uvicorn --reload` both pre-loads run on every reload — expect a slow loop during development.
+> - With multiple workers each worker holds its own copy of the model and BM25 index.
+> - BM25 has no auto-invalidation. After new chunks are embedded (see [analysis/README.md](../analysis/README.md)), restart the API — or call `BM25Index.refresh(db)` programmatically — for them to be searchable lexically. Qdrant is queried directly so dense results pick up new chunks immediately.
+
 ---
 
 ## 🔧 Environment variables
@@ -231,6 +247,8 @@ Loaded from `api/.env` via [`Settings`](app/core/config.py) (pydantic-settings).
 | `JWT_SECRET_KEY`      |    no    | `change-me-in-production`| HMAC secret used to sign access tokens. **Override in prod.** |
 | `JWT_ALGORITHM`       |    no    | `HS256`                  | JWT signing algorithm                                         |
 | `JWT_EXPIRES_MINUTES` |    no    | `1440` (24 h)            | Token lifetime in minutes                                     |
+| `QDRANT_URL`          |    no    | `http://localhost:6333`  | URL of the Qdrant instance backing the `/search/proposals` endpoint |
+| `QDRANT_API_KEY`      |    no    | `""` (unset)             | Optional Qdrant API key. Leave empty for the local docker-compose instance |
 
 ---
 
@@ -580,6 +598,8 @@ A `Proposal` is a single policy item from a candidate. It is always returned wit
 > | `positive_pole_description`  | `Text`        |    no    | Longer description of the positive pole           |
 >
 > These pole fields are stored on the model (migration `51c9fb4e4f9d_add_fields_negative_pole_name_negative_*`) and are intended to be used by the [analysis](../analysis) service when reasoning about each axis. The nested `category` object returned by the Proposals and Questions endpoints currently exposes only `id`, `name`, and `weight`.
+>
+> **About chunks.** A `ProposalChunk` ([app/domains/proposal_chunk/models.py](app/domains/proposal_chunk/models.py)) stores a paragraph-aware slice of a proposal used by the [Search](#search) endpoint. Each row carries `proposal_id` (FK), `chunk_index`, `total_chunks`, `content`, and the usual `TimestampMixin` columns. `Proposal.chunks` exposes the relationship. Chunks are produced and embedded by the [analysis](../analysis) service, not by the API itself — the API only consumes them at search time.
 
 #### `GET /api/v1/proposals`
 
@@ -1115,6 +1135,39 @@ Errors:
 | `401`  | Missing / invalid token                               |
 | `404`  | Test attempt referenced by the token does not exist   |
 | `429`  | Rate limit exceeded                                   |
+
+---
+
+### Search
+
+[routes.py](app/domains/search/routes.py) · [service.py](app/domains/search/service.py) · [schemas.py](app/domains/search/schemas.py)
+
+Hybrid full-text search across all proposal chunks. The endpoint runs a dense search against Qdrant (cosine similarity over multilingual-e5-large embeddings) and a BM25 lexical search against the in-memory index in parallel, then fuses the two ranked lists with Reciprocal Rank Fusion (`k = 60`). Results are collapsed to one entry per proposal (best-ranked chunk wins) and hydrated from MySQL with the full `candidate` and `category` relations. Soft-deleted proposals are filtered out during hydration.
+
+> **Prerequisite.** The Qdrant collection (`proposal_chunks`) and the `proposal_chunks` MySQL rows must already be populated by the [analysis](../analysis) service. With an empty collection and an empty BM25 index the endpoint returns `{ "total": 0, "items": [] }`.
+
+#### `GET /api/v1/search/proposals`
+
+- **Auth**: none
+- **Rate limit**: `100/minute`
+- **Query**:
+  - `q` (string, required, `min_length=1`) — search query
+  - `category_id` (int, `> 0`, optional) — restrict to one category. Applied as a payload filter in Qdrant and as a metadata filter in BM25.
+  - `candidate_id` (int, `> 0`, optional) — restrict to one candidate
+  - `limit` (int, `1..100`, default `10`) — number of fused proposals to return
+
+Response shape — defined by [`SearchResponse`](app/domains/search/schemas.py) / [`SearchHit`](app/domains/search/schemas.py). See `/docs` for the full schema. Each hit carries:
+
+| Field            | Description                                                                                  |
+| ---------------- | -------------------------------------------------------------------------------------------- |
+| `score`          | RRF fusion score (higher is better; not normalized).                                          |
+| `semantic_rank`  | 1-based position in the dense list, or `null` if the proposal was not retrieved semantically. |
+| `semantic_score` | Cosine similarity from Qdrant for the best chunk.                                             |
+| `lexical_rank`   | 1-based position in the BM25 list, or `null` if the proposal was not retrieved lexically.    |
+| `lexical_score`  | Raw BM25 score for the best chunk.                                                            |
+| `excerpt`        | Content of the best-matching chunk — semantic chunk preferred, otherwise lexical.            |
+
+Errors: `422` if `q` is empty; `429` rate limit.
 
 ---
 
