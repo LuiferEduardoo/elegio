@@ -1,12 +1,14 @@
 from pydantic import BaseModel, Field
 
+from app.domains.proposal.schemas import CandidateInProposal, CategoryInProposal
+
 
 class SearchHit(BaseModel):
     proposal_id: int
     title: str
     summary: str | None
-    candidate_id: int
-    category_id: int
+    candidate: CandidateInProposal
+    category: CategoryInProposal
     score: float = Field(description="RRF fusion score (higher = better)")
     semantic_rank: int | None = Field(
         default=None,

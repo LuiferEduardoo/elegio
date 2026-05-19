@@ -18,11 +18,13 @@ from collections.abc import Iterable
 from qdrant_client.models import FieldCondition, Filter, MatchValue
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.core.bm25_index import BM25Hit, get_bm25_index
 from app.core.embedder import get_embedder
 from app.core.qdrant_client import COLLECTION_NAME, get_qdrant_client
 from app.domains.proposal.models import Proposal
+from app.domains.proposal.schemas import CandidateInProposal, CategoryInProposal
 from app.domains.search.schemas import SearchHit, SearchResponse
 
 RRF_K = 60
@@ -122,9 +124,14 @@ async def search_proposals(
     # --- Hydrate from MySQL ---
     top_ids = [pid for pid, _ in top]
     result = await db.execute(
-        select(Proposal).where(
+        select(Proposal)
+        .where(
             Proposal.id.in_(top_ids),
             Proposal.deleted_at.is_(None),
+        )
+        .options(
+            selectinload(Proposal.candidate),
+            selectinload(Proposal.category),
         )
     )
     proposals_by_id = {p.id: p for p in result.scalars().all()}
@@ -155,8 +162,8 @@ async def search_proposals(
                 proposal_id=proposal.id,
                 title=proposal.title,
                 summary=proposal.summary,
-                candidate_id=proposal.candidate_id,
-                category_id=proposal.category_id,
+                candidate=CandidateInProposal.model_validate(proposal.candidate),
+                category=CategoryInProposal.model_validate(proposal.category),
                 score=rrf_score,
                 semantic_rank=(sem_info[0] + 1) if sem_info else None,
                 semantic_score=sem_info[1] if sem_info else None,
