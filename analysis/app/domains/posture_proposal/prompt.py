@@ -16,43 +16,57 @@ def build_prompt(category_slug: str, category_name: str, proposal_text: str) -> 
         for value, desc in sorted(rubric["anclajes"].items())
     )
 
-    return f"""Actúa como un experto en Ciencia Política comparada y análisis de políticas públicas.\
-Vas a clasificar el contenido de una propuesta política en un eje \
-descriptivo. Tu tarea es taxonómica, no evaluativa: no juzgas si la \
-propuesta es buena o mala, solo dónde se ubica entre dos enfoques \
-legítimos. Los signos -1 y +1 son posiciones numéricas en una recta, \
-no juicios de valor.
+    return f"""Actúa como un experto en Ciencia Política comparada y análisis de políticas públicas. Vas a clasificar el contenido de una propuesta política en un eje descriptivo. Tu tarea es taxonómica, no evaluativa: no juzgas si la propuesta es buena o mala, solo dónde se ubica entre dos enfoques legítimos. Los signos -1 y +1 son posiciones numéricas en una recta, no juicios de valor.
 
-EJE: {category_name}
+    EJE: {category_name}
 
-Extremo -1.0 — enfoque "{pn['nombre']}": {pn['descripcion']}
-Extremo +1.0 — enfoque "{pp['nombre']}": {pp['descripcion']}
+    Extremo -1.0 — enfoque "{pn['nombre']}": {pn['descripcion']}
+    Extremo +1.0 — enfoque "{pp['nombre']}": {pp['descripcion']}
 
-ANCLAJES (referencias para ubicar la propuesta):
-{anchors_str}
+    ANCLAJES (referencias para ubicar la propuesta):
+    {anchors_str}
 
-DISTRIBUCIÓN ESPERADA:
-La mayoría de propuestas reales se ubican entre -0.5 y +0.5. Los \
-valores extremos (-1.0, +1.0) requieren posiciones explícitas y \
-específicas hacia uno de los enfoques. Si la propuesta es vaga, mixta \
-o no aborda directamente el eje, el score debe estar cerca de 0 con \
-confianza baja.
+    PROPUESTA:
+    \"\"\"
+    {proposal_text}
+    \"\"\"
 
-NIVELES DE CONFIANZA:
-- high: la propuesta es explícita y específica sobre este eje.
-- medium: la posición se infiere razonablemente del texto.
-- low: el texto es vago, ambiguo, o solo toca el eje tangencialmente.
+    PASO 1 — RELEVANCIA (obligatorio antes de puntuar):
+    Antes de asignar un score, determina si la propuesta aborda este eje. Marca `addresses_axis`:
+    - "direct": la propuesta habla explícitamente del tema del eje.
+    - "tangential": la propuesta menciona el tema solo de pasada o como medio para otro fin.
+    - "none": la propuesta NO aborda este eje en absoluto (ej. una propuesta sobre vivienda evaluada en un eje de política exterior).
 
-PROPUESTA:
-\"\"\"
-{proposal_text}
-\"\"\"
+    Si `addresses_axis = "none"`, devuelve `score: null` y `confidence: "not_applicable"`. NO fuerces un 0. Un 0 significa "la propuesta toma una posición central o equilibrada en este eje", no "la propuesta no habla del eje".
 
-INSTRUCCIONES:
-- Razona paso a paso antes de calificar.
-- No infieras posiciones que el texto no sustente.
-- Usa incrementos de 0.25 para el score.
+    PASO 2 — UBICACIÓN EN EL EJE (solo si addresses_axis ≠ "none"):
 
-Responde en JSON con los campos exactamente en este orden: ambiguities, \
-reasoning, confidence, score.
-"""
+    Reserva el score 0.0 EXCLUSIVAMENTE para uno de estos dos casos:
+    (a) CENTRO GENUINO: la propuesta combina explícitamente elementos de ambos polos con peso similar, o adopta una postura de equilibrio deliberado (ej. "modelo mixto", "combinar X e Y"). En este caso la confianza puede ser MEDIUM o HIGH.
+    (b) AMBIGÜEDAD REAL sobre el eje: la propuesta toca el tema pero usa lenguaje tan genérico que podría justificar cualquier polo. Confianza LOW.
+
+    Si la propuesta aborda el eje y se inclina aunque sea débilmente hacia un polo, NO uses 0. Usa ±0.25 (inclinación leve), ±0.5 (inclinación moderada), ±0.75 (posición clara), o ±1.0 (posición explícita y categórica).
+
+    Señales que justifican alejarse de 0 incluso con poca información:
+    - Vocabulario asociado a un polo (ej. "soberanía", "libre empresa", "comunidades", "mercado").
+    - Adopción de marcos conceptuales propios de un enfoque.
+    - Crítica o rechazo explícito al otro polo.
+    - Inclusión de medidas características de un polo aunque sin detallar mecanismos.
+
+    NIVELES DE CONFIANZA:
+    - high: posición explícita y específica, O centro genuino con elementos balanceados.
+    - medium: posición inferible del lenguaje, marcos o medidas mencionadas.
+    - low: el texto es genuinamente ambiguo entre dos lecturas plausibles. NO uses LOW como sinónimo de "el texto es corto" si las señales lingüísticas son claras.
+
+    REGLAS ANTI-SESGO:
+    - No marques LOW solo porque la propuesta es breve; brevedad no equivale a ambigüedad.
+    - Si dudas entre 0 y ±0.25, elige ±0.25: la inclinación débil es más informativa que el centro forzado.
+    - "No menciona X mecanismo" no implica neutralidad si el lenguaje general apunta a un polo.
+    - Distingue: ¿la propuesta es vaga sobre CÓMO implementar (mecanismos), o vaga sobre QUÉ enfoque adoptar (filosofía)? Solo lo segundo justifica acercarse a 0.
+
+    PASO 3 — RAZONAMIENTO:
+    Razona paso a paso. Cita fragmentos textuales que sustenten tu lectura. No infieras posiciones que el texto no sustente, pero tampoco descartes señales lingüísticas sutiles.
+
+    Responde en JSON con los campos exactamente en este orden:
+    addresses_axis, ambiguities, reasoning, confidence, score
+    """
