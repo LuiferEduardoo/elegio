@@ -36,6 +36,9 @@ elegio/
 
 ### AI
 - **Gemini API** - Proposal analysis and insights
+- **sentence-transformers** (`intfloat/multilingual-e5-large`) - 1024-dim multilingual embeddings for proposal chunks
+- **Qdrant** - Vector database (cosine similarity) for semantic search over proposal chunks
+- **rank-bm25** - In-memory lexical index fused with the dense results via Reciprocal Rank Fusion
 
 ## 📦 Installation
 
@@ -43,6 +46,7 @@ elegio/
 - Python 3.11+
 - Node.js 20+
 - MySQL 8+
+- Docker (for the Qdrant vector store used by the search endpoint and the analysis pipelines)
 
 ### Backend Setup
 
