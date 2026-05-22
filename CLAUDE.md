@@ -5,7 +5,7 @@
 ```
 elegio/
 ├── api/           # FastAPI backend
-├── frontend/      # Next.js frontend
+├── elegio-front/  # Vite + React frontend
 └── analysis/      # AI proposal analysis
 ```
 
@@ -18,9 +18,9 @@ elegio/
 - **Migrations**: Alembic
 - **Validation**: Pydantic v2
 
-### Frontend ([frontend/](frontend/))
-- **Framework**: Next.js
-- **Styling**: Tailwind CSS
+### Frontend ([elegio-front/](elegio-front/))
+- **Framework**: Vite + React 19
+- **Styling**: CSS
 - **State**: React Context / Zustand (as needed)
 
 ### AI ([analysis/](analysis/))
@@ -46,11 +46,9 @@ elegio/
 - Apply migration: `alembic upgrade head`
 - Rollback: `alembic downgrade -1`
 
-### Frontend (Next.js)
-- App Router (Next.js 13+)
+### Frontend (Vite + React)
 - Components in `components/`
-- Server Actions for mutations
-- Route Handlers for backend calls
+- API calls should target the FastAPI backend at `http://localhost:8000` in local development
 
 ## Common Commands
 
@@ -61,13 +59,18 @@ python -m venv venv
 source venv/bin/activate  # Linux/Mac
 venv\Scripts\activate     # Windows
 pip install -r requirements.txt
+cp .env.example .env
+# For the bundled local DB, set:
+# DATABASE_URL=mysql+aiomysql://elegio_user:elegio_password@localhost:3306/elegio
+# DATABASE_URL_SYNC=mysql+pymysql://elegio_user:elegio_password@localhost:3306/elegio
+docker compose -f docker-compose.dev.yml up -d
 alembic upgrade head
 uvicorn app.main:app --reload
 ```
 
 ### Frontend
 ```bash
-cd frontend
+cd elegio-front
 npm install
 npm run dev
 ```
@@ -80,7 +83,7 @@ npm run dev
 
 Each service has its own `.env`:
 - `api/.env` - Backend config (DB_URL, etc)
-- `frontend/.env.local` - Frontend config (API_URL, etc)
+- `elegio-front/.env.local` - Frontend config (API_URL, etc)
 
 ## Code Conventions
 

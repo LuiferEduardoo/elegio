@@ -224,7 +224,7 @@ Useful URLs once the server is up:
 - `GET /docs` — interactive Swagger UI
 - `GET /redoc` — ReDoc UI
 
-> **First-start cost.** The FastAPI [`lifespan`](app/main.py) hook eagerly loads the multilingual-e5-large SentenceTransformer (~1.5 GB RAM per worker; the first start downloads the weights and takes ~30 s) and builds the BM25 index by reading every `proposal_chunks` row joined with non-deleted proposals. Both steps log their timing. If either pre-load fails the API still starts and falls back to lazy loading on the first search request.
+> **Search warm-up.** By default, local development skips the expensive search pre-load so the API starts quickly. Set `EAGER_LOAD_SEARCH_ON_STARTUP=true` to make the FastAPI [`lifespan`](app/main.py) hook eagerly load the multilingual-e5-large SentenceTransformer (~1.5 GB RAM per worker; the first start downloads the weights) and build the BM25 index from `proposal_chunks`. If either pre-load fails, the API still starts and falls back to lazy loading on the first search request.
 >
 > Operational notes:
 > - With `uvicorn --reload` both pre-loads run on every reload — expect a slow loop during development.
@@ -249,6 +249,7 @@ Loaded from `api/.env` via [`Settings`](app/core/config.py) (pydantic-settings).
 | `JWT_EXPIRES_MINUTES` |    no    | `1440` (24 h)            | Token lifetime in minutes                                     |
 | `QDRANT_URL`          |    no    | `http://localhost:6333`  | URL of the Qdrant instance backing the `/search/proposals` endpoint |
 | `QDRANT_API_KEY`      |    no    | `""` (unset)             | Optional Qdrant API key. Leave empty for the local docker-compose instance |
+| `EAGER_LOAD_SEARCH_ON_STARTUP` | no | `False` | Pre-loads the embedding model and BM25 index during FastAPI startup when enabled |
 
 ---
 

@@ -16,7 +16,7 @@ Elegio is a non-partisan platform designed to help voters make informed decision
 ```
 elegio/
 ├── api/          # Backend FastAPI
-├── frontend/     # Next.js web application
+├── elegio-front/ # Vite + React web application
 └── analysis/     # AI-powered proposal analysis
 ```
 
@@ -30,9 +30,9 @@ elegio/
 - **Pydantic v2** - Data validation
 
 ### Frontend
-- **Next.js** - React framework with App Router
+- **Vite** - Frontend build tool and dev server
+- **React 19** - UI library
 - **TypeScript** - Type-safe development
-- **Tailwind CSS** - Utility-first styling
 
 ### AI
 - **Gemini API** - Proposal analysis and insights
@@ -58,12 +58,21 @@ source venv/bin/activate  # Linux/Mac
 pip install -r requirements.txt
 ```
 
-Configure environment variables in `api/.env`:
+Configure environment variables in `api/.env`. If you use the bundled Docker Compose database, use these local values:
 
 ```env
-DATABASE_URL=mysql+aiomysql://user:password@localhost:3306/elegio
-SECRET_KEY=your_secret_key
+DATABASE_URL=mysql+aiomysql://elegio_user:elegio_password@localhost:3306/elegio
+DATABASE_URL_SYNC=mysql+pymysql://elegio_user:elegio_password@localhost:3306/elegio
+JWT_SECRET_KEY=change-me-in-development
 ```
+
+Start the local database:
+
+```bash
+docker compose -f docker-compose.dev.yml up -d
+```
+
+This exposes MySQL on `localhost:3306` and phpMyAdmin at `http://localhost:8080`.
 
 Run migrations:
 
@@ -80,15 +89,15 @@ uvicorn app.main:app --reload
 ### Frontend Setup
 
 ```bash
-cd frontend
+cd elegio-front
 npm install
 npm run dev
 ```
 
-Configure `frontend/.env.local`:
+Configure `elegio-front/.env.local` if the frontend needs to call the API:
 
 ```env
-NEXT_PUBLIC_API_URL=http://localhost:8000
+VITE_API_URL=http://localhost:8000
 ```
 
 ## 🛠️ Development

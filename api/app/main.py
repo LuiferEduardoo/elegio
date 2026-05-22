@@ -20,6 +20,11 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    if not settings.EAGER_LOAD_SEARCH_ON_STARTUP:
+        logger.info("Skipping search pre-load; EAGER_LOAD_SEARCH_ON_STARTUP is disabled")
+        yield
+        return
+
     t0 = time.perf_counter()
     try:
         logger.info("Loading embedding model (multilingual-e5-large)...")

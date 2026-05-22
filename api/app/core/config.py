@@ -19,6 +19,7 @@ class Settings(BaseSettings):
 
     QDRANT_URL: str = "http://localhost:6333"
     QDRANT_API_KEY: str = ""
+    EAGER_LOAD_SEARCH_ON_STARTUP: bool = False
 
 
 @lru_cache
