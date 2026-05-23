@@ -10,14 +10,24 @@ type CandidateGridProps = {
 export function CandidateGrid({ candidates, error, isLoading }: CandidateGridProps) {
   return (
     <section className="mx-auto max-w-7xl px-6 py-14 sm:px-10 lg:px-16">
-      <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="text-sm font-black uppercase tracking-[0.3em] text-clay">Candidatos</p>
-          <h2 className="mt-2 font-display text-4xl tracking-[-0.04em] text-ink">
-            El tarjetón, explicado.
-          </h2>
+      <div className="mb-8">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="text-sm font-black uppercase tracking-[0.3em] text-clay">Candidatos</p>
+            <h2 className="mt-2 font-display text-4xl tracking-[-0.04em] text-ink">
+              El tarjetón, explicado.
+            </h2>
+          </div>
+          <a
+            href="https://wapp.registraduria.gov.co/electoral/2026/presidente-de-la-republica/IMG/pdf/tarjeta-electoral_presidente-2026.pdf"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex w-fit items-center justify-center rounded-full bg-ink px-5 py-2.5 text-sm font-bold text-white transition hover:bg-clay focus:outline-none focus-visible:ring-2 focus-visible:ring-clay focus-visible:ring-offset-2"
+          >
+            Ver tarjetón electoral
+          </a>
         </div>
-        <p className="max-w-xl text-sm leading-6 text-muted">
+        <p className="mt-4 max-w-xl text-sm leading-6 text-muted">
           Cada tarjeta resume fórmula presidencial, espectro político y categorías
           donde sus propuestas tienen posiciones más marcadas.
         </p>
