@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-labelledby="title desc">
+  <title id="title">Logo de partido no disponible</title>
+  <desc id="desc">Emblema neutral usado cuando el logo del partido no carga.</desc>
+  <rect width="120" height="120" rx="32" fill="#eff6ff" />
+  <path d="M31 78V38l29-12 29 12v40c0 5-4 9-9 9H40c-5 0-9-4-9-9Z" fill="#dbeafe" stroke="#12355b" stroke-opacity=".18" stroke-width="4" />
+  <path d="M60 33v47" stroke="#0f6bff" stroke-width="6" stroke-linecap="round" />
+  <path d="M43 50h34M43 65h34" stroke="#12355b" stroke-opacity=".45" stroke-width="5" stroke-linecap="round" />
+</svg>

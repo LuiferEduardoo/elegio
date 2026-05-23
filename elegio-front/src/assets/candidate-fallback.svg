@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 760" role="img" aria-labelledby="title desc">
+  <title id="title">Imagen de candidato no disponible</title>
+  <desc id="desc">Ilustración neutral usada cuando la foto del candidato no carga.</desc>
+  <rect width="640" height="760" fill="#f8fbff" />
+  <circle cx="320" cy="246" r="118" fill="#dbeafe" />
+  <path d="M116 662c36-142 134-218 204-218s168 76 204 218" fill="#dbeafe" />
+  <path d="M80 80h480v600H80z" fill="none" stroke="#12355b" stroke-opacity=".16" stroke-width="24" />
+  <text x="320" y="704" text-anchor="middle" font-family="Arial, sans-serif" font-size="34" font-weight="700" fill="#12355b" fill-opacity=".55">Elegio</text>
+</svg>
