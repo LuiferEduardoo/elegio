@@ -250,6 +250,10 @@ Loaded from `api/.env` via [`Settings`](app/core/config.py) (pydantic-settings).
 | `QDRANT_URL`          |    no    | `http://localhost:6333`  | URL of the Qdrant instance backing the `/search/proposals` endpoint |
 | `QDRANT_API_KEY`      |    no    | `""` (unset)             | Optional Qdrant API key. Leave empty for the local docker-compose instance |
 | `EAGER_LOAD_SEARCH_ON_STARTUP` | no | `False` | Pre-loads the embedding model and BM25 index during FastAPI startup when enabled |
+| `CORS_ORIGINS`        |    no    | `http://localhost:5173,http://127.0.0.1:5173` | Comma-separated list of exact origins allowed by the CORS middleware. Parsed into a list via `Settings.cors_origin_list`. |
+| `CORS_ORIGIN_REGEX`   |    no    | `https?://(localhost\|127\.0\.0\.1):\d+` | Regex matched against the request `Origin` header. Lets dev ports through without listing each one in `CORS_ORIGINS`. |
+
+> **CORS.** The middleware is mounted in [app/main.py](app/main.py) with `allow_credentials=True`, `allow_methods=["*"]`, and `allow_headers=["*"]`. An incoming request is accepted when its `Origin` either appears in `CORS_ORIGINS` or matches `CORS_ORIGIN_REGEX`. Override both in production to lock the API down to the deployed frontend's origin(s).
 
 ---
 
@@ -587,7 +591,18 @@ Errors:
 
 A `Proposal` is a single policy item from a candidate. It is always returned with its **category**, **candidate**, **postures** (axis values), **taggings**, and **sources** eagerly loaded.
 
-> **About postures.** A `Posture` ([app/domains/posture/models.py](app/domains/posture/models.py)) records a candidate's coded position for a proposal on a given axis. Each row persists more than what the API exposes today: the numeric `axis_value`, plus a `confidence` enum (`high` / `medium` / `low`), free-text `reasoning` and `ambiguities`, and authorship metadata via `coder_type` (`llm` / `human`) and `coder_name`. The Proposal endpoints only surface `id` and `axis_value` — the remaining fields are kept for downstream auditing and analysis (see the [analysis](../analysis) service).
+> **About postures.** A `Posture` ([app/domains/posture/models.py](app/domains/posture/models.py)) records a candidate's coded position for a proposal on a given axis. Each row persists more than what the API exposes today:
+>
+> | Column        | Type                                          | Nullable | Description                                                              |
+> | ------------- | --------------------------------------------- | :------: | ------------------------------------------------------------------------ |
+> | `axis_value`  | `Float`                                        |    no    | Position on the category axis, in `[-1.0, +1.0]`.                        |
+> | `confidence`  | `Enum("high", "medium", "low")`                |    no    | Coder's confidence in the assigned `axis_value`.                          |
+> | `reasoning`   | `Text`                                         |   yes    | Free-text justification for the `axis_value`.                            |
+> | `ambiguities` | `Text`                                         |   yes    | Notes on wording / scope ambiguities the coder ran into.                  |
+> | `coder_type`  | `Enum("llm", "human")`                         |    no    | Origin of the coding pass.                                                |
+> | `coder_name`  | `String(255)`                                  |    no    | Identifier of the coder (LLM name + version, or human reviewer handle).  |
+>
+> The `confidence`, `reasoning`, `ambiguities`, and `coder_type` columns were added by migration `b7f4c2a19d6e_add_missing_posture_metadata`. The Proposal endpoints only surface `id` and `axis_value` — the remaining fields are kept for downstream auditing and analysis (see the [analysis](../analysis) service).
 >
 > **About categories.** A `Category` ([app/domains/category/models.py](app/domains/category/models.py)) is the descriptive axis a `Posture.axis_value` is placed on (the same `-1.0` / `+1.0` scale). In addition to `id`, `name`, and `weight`, every category persists the labels and descriptions of its two poles:
 >
@@ -1143,7 +1158,7 @@ Errors:
 
 [routes.py](app/domains/search/routes.py) · [service.py](app/domains/search/service.py) · [schemas.py](app/domains/search/schemas.py)
 
-Hybrid full-text search across all proposal chunks. The endpoint runs a dense search against Qdrant (cosine similarity over multilingual-e5-large embeddings) and a BM25 lexical search against the in-memory index in parallel, then fuses the two ranked lists with Reciprocal Rank Fusion (`k = 60`). Results are collapsed to one entry per proposal (best-ranked chunk wins) and hydrated from MySQL with the full `candidate` and `category` relations. Soft-deleted proposals are filtered out during hydration.
+Hybrid full-text search across all proposal chunks. The endpoint runs a dense search against Qdrant (cosine similarity over multilingual-e5-large embeddings) and a BM25 lexical search against the in-memory index in parallel, then fuses the two ranked lists with Reciprocal Rank Fusion (`k = 60`). Results are collapsed to one entry per proposal (best-ranked chunk wins) and hydrated from MySQL with the full `candidate`, `category`, `taggings`, and `sources` relations. Soft-deleted proposals are filtered out during hydration.
 
 > **Prerequisite.** The Qdrant collection (`proposal_chunks`) and the `proposal_chunks` MySQL rows must already be populated by the [analysis](../analysis) service. With an empty collection and an empty BM25 index the endpoint returns `{ "total": 0, "items": [] }`.
 
@@ -1167,6 +1182,8 @@ Response shape — defined by [`SearchResponse`](app/domains/search/schemas.py) 
 | `lexical_rank`   | 1-based position in the BM25 list, or `null` if the proposal was not retrieved lexically.    |
 | `lexical_score`  | Raw BM25 score for the best chunk.                                                            |
 | `excerpt`        | Content of the best-matching chunk — semantic chunk preferred, otherwise lexical.            |
+| `taggings`       | List of `{ id, name }` tags attached to the proposal in MySQL (eager-loaded, not from Qdrant or BM25). |
+| `sources`        | List of `{ id, url }` source references attached to the proposal in MySQL.                   |
 
 Errors: `422` if `q` is empty; `429` rate limit.
 
