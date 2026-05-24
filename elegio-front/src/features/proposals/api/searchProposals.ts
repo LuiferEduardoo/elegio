@@ -12,7 +12,7 @@ export type SearchProposalsOptions = {
 
 export async function searchProposals(
   query: string,
-  { candidateId, categoryId, limit = 20 }: SearchProposalsOptions = {},
+  { candidateId, categoryId, limit = 10 }: SearchProposalsOptions = {},
 ): Promise<ProposalSearchResponse> {
   try {
     const response = await apiClient.get<ProposalSearchResponse>(
