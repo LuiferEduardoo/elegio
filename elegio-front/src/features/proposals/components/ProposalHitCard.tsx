@@ -41,6 +41,41 @@ export function ProposalHitCard({ hit }: ProposalHitCardProps) {
               “{hit.excerpt}”
             </blockquote>
           )}
+
+          {hit.taggings.length > 0 && (
+            <ul className="mt-3 flex flex-wrap gap-2">
+              {hit.taggings.map((tag) => (
+                <li
+                  key={tag.id}
+                  className="rounded-full border border-coffee/15 bg-surface/60 px-2.5 py-1 text-xs font-semibold text-coffee"
+                >
+                  #{tag.name}
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {hit.sources.length > 0 && (
+            <div className="mt-4 border-t border-coffee/10 pt-3">
+              <p className="text-xs font-bold uppercase tracking-[0.15em] text-muted">
+                Fuentes
+              </p>
+              <ul className="mt-2 flex flex-col gap-1">
+                {hit.sources.map((source) => (
+                  <li key={source.id}>
+                    <a
+                      href={source.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="break-all text-xs font-semibold text-jade underline-offset-2 transition hover:underline"
+                    >
+                      {source.url}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
       </div>
     </article>

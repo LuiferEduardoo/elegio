@@ -15,12 +15,24 @@ export type ProposalCandidate = {
   photo_of_political_group: string | null
 }
 
+export type ProposalTagging = {
+  id: number
+  name: string
+}
+
+export type ProposalSource = {
+  id: number
+  url: string
+}
+
 export type ProposalHit = {
   proposal_id: number
   title: string
   summary: string | null
   candidate: ProposalCandidate
   category: ProposalCategory
+  taggings: ProposalTagging[]
+  sources: ProposalSource[]
   score: number
   semantic_rank: number | null
   semantic_score: number | null
