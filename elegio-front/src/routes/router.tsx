@@ -15,12 +15,11 @@ export const router = createBrowserRouter([
     element: <ProposalsPage />,
   },
   {
-<<<<<<< HEAD
     path: ROUTE_PATHS.candidateDetail,
     element: <CandidateDetailPage />,
-=======
+  },
+  {
     path: ROUTE_PATHS.methodology,
     element: <MethodologyPage />,
->>>>>>> b4022dc (feat(elegio-front): Add methodology page)
   },
 ])
