@@ -1,4 +1,5 @@
 import { NavBar } from '../features/home/components/NavBar'
+import { Footer } from '../components/Footer'
 
 type Step = {
   number: string
@@ -110,10 +111,11 @@ const PRINCIPLES: { title: string; body: string }[] = [
 
 export function MethodologyPage() {
   return (
-    <div className="min-h-screen bg-surface text-ink">
+    <div className="flex min-h-screen flex-col bg-surface text-ink">
       <NavBar />
 
-      <main className="mx-auto max-w-4xl px-6 py-16 sm:px-10 lg:px-16">
+      <main className="mx-auto w-full max-w-4xl flex-grow px-6 py-16 sm:px-10 lg:px-16">
+
         <header className="mb-14">
           <p className="text-sm font-black uppercase tracking-[0.3em] text-clay">
             Metodología
@@ -226,6 +228,7 @@ export function MethodologyPage() {
           </ul>
         </section>
       </main>
+      <Footer />
     </div>
   )
 }

@@ -3,6 +3,7 @@ import { useCandidates } from '../features/candidates/hooks/useCandidates'
 import { NavBar } from '../features/home/components/NavBar'
 import { ProposalHitCard } from '../features/proposals/components/ProposalHitCard'
 import { useProposalSearch } from '../features/proposals/hooks/useProposalSearch'
+import { Footer } from '../components/Footer'
 
 const FILTER_CLASS =
   'min-w-[12rem] rounded-full border border-coffee/15 bg-white px-4 py-2.5 text-sm font-semibold text-ink shadow-sm shadow-coffee/5 outline-none transition focus:border-clay focus:ring-2 focus:ring-clay/30'
@@ -41,10 +42,11 @@ export function ProposalsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-surface text-ink">
+    <div className="flex min-h-screen flex-col bg-surface text-ink">
       <NavBar />
 
-      <main className="mx-auto max-w-5xl px-6 py-16 sm:px-10 lg:px-16">
+      <main className="mx-auto w-full max-w-5xl flex-grow px-6 py-16 sm:px-10 lg:px-16">
+
         <header className="mb-10">
           <p className="text-sm font-black uppercase tracking-[0.3em] text-clay">Buscador</p>
           <h1 className="mt-3 font-display text-4xl leading-[1.05] tracking-[-0.04em] text-ink sm:text-5xl">
@@ -158,6 +160,7 @@ export function ProposalsPage() {
           )}
         </section>
       </main>
+      <Footer />
     </div>
   )
 }
