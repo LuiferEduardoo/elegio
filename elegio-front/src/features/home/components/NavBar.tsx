@@ -4,6 +4,7 @@ import { Link } from 'react-router'
 const NAV_LINKS = [
   { href: '/', label: 'Inicio' },
   { href: '/propuestas', label: 'Propuestas' },
+  { href: '/test', label: 'Match electoral ✦', isInteractive: true },
   { href: '/metodologia', label: 'Metodología' },
 ]
 
@@ -38,20 +39,17 @@ export function NavBar() {
               <li key={link.href}>
                 <Link
                   to={link.href}
-                  className="text-sm font-semibold text-muted transition hover:text-ink"
+                  className={
+                    link.isInteractive
+                      ? 'rounded-full bg-jade/10 px-4 py-2 text-sm font-black text-jade ring-1 ring-jade/15 transition hover:-translate-y-0.5 hover:bg-jade hover:text-white hover:shadow-lg hover:shadow-jade/20'
+                      : 'text-sm font-semibold text-muted transition hover:text-ink'
+                  }
                 >
                   {link.label}
                 </Link>
               </li>
             ))}
           </ul>
-
-          <a
-            href="#afinidad"
-            className="inline-flex items-center rounded-full bg-ink px-4 py-2 text-sm font-bold text-white transition hover:bg-clay focus:outline-none focus-visible:ring-2 focus-visible:ring-clay focus-visible:ring-offset-2"
-          >
-            Hacer test
-          </a>
 
           <button
             type="button"
@@ -107,7 +105,11 @@ export function NavBar() {
               <Link
                 to={link.href}
                 onClick={() => setIsOpen(false)}
-                className="block rounded-2xl px-4 py-3 text-base font-semibold text-ink transition hover:bg-coffee/5"
+                className={
+                  link.isInteractive
+                    ? 'block rounded-2xl bg-jade/10 px-4 py-3 text-base font-black text-jade transition hover:bg-jade hover:text-white'
+                    : 'block rounded-2xl px-4 py-3 text-base font-semibold text-ink transition hover:bg-coffee/5'
+                }
               >
                 {link.label}
               </Link>
