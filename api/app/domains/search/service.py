@@ -24,7 +24,12 @@ from app.core.bm25_index import BM25Hit, get_bm25_index
 from app.core.embedder import get_embedder
 from app.core.qdrant_client import COLLECTION_NAME, get_qdrant_client
 from app.domains.proposal.models import Proposal
-from app.domains.proposal.schemas import CandidateInProposal, CategoryInProposal
+from app.domains.proposal.schemas import (
+    CandidateInProposal,
+    CategoryInProposal,
+    SourceInProposal,
+    TaggingInProposal,
+)
 from app.domains.search.schemas import SearchHit, SearchResponse
 
 RRF_K = 60
@@ -132,6 +137,8 @@ async def search_proposals(
         .options(
             selectinload(Proposal.candidate),
             selectinload(Proposal.category),
+            selectinload(Proposal.taggings),
+            selectinload(Proposal.sources),
         )
     )
     proposals_by_id = {p.id: p for p in result.scalars().all()}
@@ -164,6 +171,12 @@ async def search_proposals(
                 summary=proposal.summary,
                 candidate=CandidateInProposal.model_validate(proposal.candidate),
                 category=CategoryInProposal.model_validate(proposal.category),
+                taggings=[
+                    TaggingInProposal.model_validate(t) for t in proposal.taggings
+                ],
+                sources=[
+                    SourceInProposal.model_validate(s) for s in proposal.sources
+                ],
                 score=rrf_score,
                 semantic_rank=(sem_info[0] + 1) if sem_info else None,
                 semantic_score=sem_info[1] if sem_info else None,

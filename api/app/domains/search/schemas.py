@@ -1,6 +1,11 @@
 from pydantic import BaseModel, Field
 
-from app.domains.proposal.schemas import CandidateInProposal, CategoryInProposal
+from app.domains.proposal.schemas import (
+    CandidateInProposal,
+    CategoryInProposal,
+    SourceInProposal,
+    TaggingInProposal,
+)
 
 
 class SearchHit(BaseModel):
@@ -9,6 +14,8 @@ class SearchHit(BaseModel):
     summary: str | None
     candidate: CandidateInProposal
     category: CategoryInProposal
+    taggings: list[TaggingInProposal]
+    sources: list[SourceInProposal]
     score: float = Field(description="RRF fusion score (higher = better)")
     semantic_rank: int | None = Field(
         default=None,
