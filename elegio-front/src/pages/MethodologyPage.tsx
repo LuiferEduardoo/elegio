@@ -39,6 +39,52 @@ const STEPS: Step[] = [
   },
 ]
 
+type Formula = {
+  name: string
+  expression: string
+  usage: string
+}
+
+const FORMULAS: Formula[] = [
+  {
+    name: 'Promedio por categoría',
+    expression: 'avg(c) = (Σ pᵢ) / N',
+    usage:
+      'Por cada candidato y cada categoría promediamos los axis_value (-1.0 / +1.0) de sus propuestas. Es lo que ves en las tarjetas: el "centro de masa" de su discurso en ese eje.',
+  },
+  {
+    name: 'Embedding multilingüe',
+    expression: 'e(t) = E(t) ∈ ℝ¹⁰²⁴',
+    usage:
+      'Cada propuesta y cada consulta se convierten en un vector de 1024 dimensiones usando multilingual-e5-large. Los vectores capturan significado, no solo palabras, así una búsqueda por "pensión" también encuentra "jubilación".',
+  },
+  {
+    name: 'Similitud coseno',
+    expression: 'cos(q, p) = (q · p) / (‖q‖ ‖p‖)',
+    usage:
+      'Qdrant ordena los chunks de propuestas por similitud coseno entre el embedding de tu consulta y los embeddings precalculados. Es la base del ranking semántico.',
+  },
+  {
+    name: 'BM25',
+    expression: 'score(d, q) = Σ IDF(t) · tf · (k₁+1) / (tf + k₁(1 − b + b·|d|/avgdl))',
+    usage:
+      'Ranking léxico clásico: premia documentos que contienen los términos exactos de la consulta, ajustando por frecuencia y longitud del documento. Usado en paralelo al semántico para no perder coincidencias literales.',
+  },
+  {
+    name: 'Reciprocal Rank Fusion (RRF)',
+    expression: 'score(p) = Σᵢ 1 / (k + rankᵢ(p)),  k = 60',
+    usage:
+      'Combinamos el ranking semántico y el léxico sumando 1/(60 + rango) en cada lista. El parámetro k=60 amortigua el peso de los rangos altos. Esto permite fusionar dos algoritmos con escalas distintas sin tener que calibrarlos.',
+  },
+  {
+    name: 'Distancia de Manhattan ponderada (resultado del test)',
+    expression:
+      'd(u, c) = Σₖ wₖ · |uₖ − cₖ|\nafinidad(u, c) = 1 − d(u, c) / (2 · Σₖ wₖ)',
+    usage:
+      'Tu afinidad con cada candidato se calcula como la distancia de Manhattan ponderada entre tu vector de respuestas y el suyo, categoría por categoría. uₖ es tu posición promedio en la categoría k, cₖ la del candidato (promedio de sus postures) y wₖ el peso de esa categoría. Dividimos entre la distancia máxima posible (2·Σwₖ, porque cada eje vive en [−1, +1]) para que el resultado quede en [0, 1] y lo mostramos como porcentaje: 100% es coincidencia perfecta, 0% es oposición total. Elegimos Manhattan en vez de euclidiana para que cada categoría aporte de forma lineal, sin penalizar desproporcionadamente desacuerdos grandes en un solo eje.',
+  },
+]
+
 const PRINCIPLES: { title: string; body: string }[] = [
   {
     title: 'Trazabilidad',
@@ -104,6 +150,33 @@ export function MethodologyPage() {
               </li>
             ))}
           </ol>
+        </section>
+
+        <section aria-labelledby="formulas" className="mb-16">
+          <h2 id="formulas" className="font-display text-2xl tracking-[-0.03em] text-ink">
+            Funciones matemáticas que usamos
+          </h2>
+          <p className="mt-3 max-w-2xl text-sm leading-7 text-muted">
+            Las fórmulas que están detrás del posicionamiento, la búsqueda y los
+            promedios. Las dejamos explícitas para que cualquiera pueda auditar o
+            cuestionar el resultado.
+          </p>
+          <ul className="mt-6 flex flex-col gap-4">
+            {FORMULAS.map((formula) => (
+              <li
+                key={formula.name}
+                className="rounded-3xl border border-coffee/10 bg-white p-6 shadow-sm shadow-coffee/5"
+              >
+                <h3 className="font-display text-lg tracking-[-0.02em] text-ink">
+                  {formula.name}
+                </h3>
+                <pre className="mt-3 overflow-x-auto rounded-2xl border border-coffee/10 bg-surface/70 px-4 py-3 font-mono text-sm leading-6 text-coffee">
+                  {formula.expression}
+                </pre>
+                <p className="mt-3 text-sm leading-7 text-muted">{formula.usage}</p>
+              </li>
+            ))}
+          </ul>
         </section>
 
         <section aria-labelledby="principles" className="mb-16">
