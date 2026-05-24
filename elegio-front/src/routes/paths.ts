@@ -3,6 +3,7 @@ export const ROUTE_PATHS = {
   candidates: '/candidatos',
   candidateDetail: '/candidatos/:id',
   proposals: '/propuestas',
+  methodology: '/metodologia',
   test: '/test',
   results: '/resultados',
 } as const
