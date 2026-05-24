@@ -6,6 +6,8 @@ export const ROUTE_PATHS = {
   methodology: '/metodologia',
   test: '/test',
   results: '/resultados',
+  privacy: '/privacidad',
+  cookies: '/cookies',
 } as const
 
 export const buildCandidateDetailPath = (id: number | string) => `/candidatos/${id}`

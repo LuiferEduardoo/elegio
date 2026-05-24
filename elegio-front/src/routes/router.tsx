@@ -4,6 +4,8 @@ import { HomePage } from '../pages/HomePage'
 import { MethodologyPage } from '../pages/MethodologyPage'
 import { ProposalsPage } from '../pages/ProposalsPage'
 import { TestPage } from '../pages/TestPage'
+import { PrivacyPolicyPage } from '../pages/PrivacyPolicyPage'
+import { CookiesPolicyPage } from '../pages/CookiesPolicyPage'
 import { ROUTE_PATHS } from './paths'
 
 export const router = createBrowserRouter([
@@ -27,4 +29,13 @@ export const router = createBrowserRouter([
     path: ROUTE_PATHS.test,
     element: <TestPage />,
   },
+  {
+    path: ROUTE_PATHS.privacy,
+    element: <PrivacyPolicyPage />,
+  },
+  {
+    path: ROUTE_PATHS.cookies,
+    element: <CookiesPolicyPage />,
+  },
 ])
+
