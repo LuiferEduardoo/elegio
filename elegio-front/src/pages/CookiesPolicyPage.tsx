@@ -53,7 +53,7 @@ export function CookiesPolicyPage() {
                     Identificador anónimo temporal. Se utiliza exclusivamente para guardar el progreso de tu "Match electoral" (el test) y poder calcular tus resultados finales. 
                     Sin esta cookie, perderías tu progreso en el test al recargar la página.
                   </td>
-                  <td className="px-4 py-3">1 mes / Eliminada al finalizar el test</td>
+                  <td className="px-4 py-3">1 mes</td>
                 </tr>
               </tbody>
             </table>
