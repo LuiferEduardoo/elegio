@@ -1,5 +1,7 @@
+import { Link } from 'react-router'
 import fallbackCandidateImage from '../../../assets/candidate-fallback.svg'
 import fallbackPartyImage from '../../../assets/party-fallback.svg'
+import { buildCandidateDetailPath } from '../../../routes/paths'
 import type { Candidate } from '../types'
 
 type CandidateCardProps = {
@@ -11,7 +13,7 @@ export function CandidateCard({ candidate }: CandidateCardProps) {
   const partyImageSource = candidate.photo_of_political_group || fallbackPartyImage
 
   return (
-    <article className="group overflow-hidden rounded-[2rem] border border-coffee/10 bg-white shadow-sm shadow-coffee/5 transition duration-300 hover:-translate-y-1 hover:shadow-2xl hover:shadow-coffee/10">
+    <article className="group flex flex-col overflow-hidden rounded-[2rem] border border-coffee/10 bg-white shadow-sm shadow-coffee/5 transition duration-300 hover:-translate-y-1 hover:shadow-2xl hover:shadow-coffee/10">
       <div className="relative h-72 bg-gradient-to-br from-white via-surface to-gold/10">
         <img
           src={imageSource}
@@ -30,7 +32,7 @@ export function CandidateCard({ candidate }: CandidateCardProps) {
         </div>
       </div>
 
-      <div className="p-5">
+      <div className="flex flex-1 flex-col gap-5 p-5">
         <div className="flex items-start gap-4">
           <img
             src={partyImageSource}
@@ -52,6 +54,13 @@ export function CandidateCard({ candidate }: CandidateCardProps) {
             <p className="mt-1 text-sm text-muted">Vice: {candidate.vice_presidential_candidate}</p>
           </div>
         </div>
+
+        <Link
+          to={buildCandidateDetailPath(candidate.id)}
+          className="mt-auto inline-flex items-center justify-center gap-2 rounded-full bg-coffee px-5 py-3 text-xs font-black uppercase tracking-[0.25em] text-white transition hover:bg-jade focus:outline-none focus:ring-2 focus:ring-jade/40"
+        >
+          Ver candidato →
+        </Link>
       </div>
     </article>
   )

@@ -30,14 +30,24 @@ class Posture(Base, TimestampMixin):
     proposal: Mapped[Proposal] = relationship(back_populates="postures")
 
     confidence: Mapped[ConfidenceLevel] = mapped_column(
-        SAEnum(ConfidenceLevel, name="confidence_level"), nullable=False
+        SAEnum(
+            ConfidenceLevel,
+            name="confidence_level",
+            values_callable=lambda enum_cls: [member.value for member in enum_cls],
+        ),
+        nullable=False,
     )
 
     reasoning: Mapped[str | None] = mapped_column(Text, nullable=True)
     ambiguities: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     coder_type: Mapped[CoderType] = mapped_column(
-        SAEnum(CoderType, name="coder_type"), nullable=False
+        SAEnum(
+            CoderType,
+            name="coder_type",
+            values_callable=lambda enum_cls: [member.value for member in enum_cls],
+        ),
+        nullable=False,
     )
 
     coder_name: Mapped[str] = mapped_column(String(255), nullable=False)
