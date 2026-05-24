@@ -2,14 +2,6 @@ import type { TestFlowStatus } from '../hooks/useTestFlow'
 import type { Question, ResponseOption } from '../types'
 import { normalizeMojibake } from '../utils/text'
 
-const OPTION_VALUE_LABELS = new Map([
-  [-1, 'Muy de acuerdo'],
-  [-0.5, 'De acuerdo'],
-  [0, 'Neutral'],
-  [0.5, 'En desacuerdo'],
-  [1, 'Muy en desacuerdo'],
-])
-
 type QuestionStepProps = {
   canSubmit: boolean
   currentIndex: number
@@ -55,7 +47,6 @@ export function QuestionStep({
       <div className="mt-8 grid gap-3">
         {options.map((option) => {
           const isSelected = selectedOptionId === option.id
-          const label = OPTION_VALUE_LABELS.get(option.value) ?? option.title
 
           return (
             <button
@@ -68,7 +59,9 @@ export function QuestionStep({
                   : 'border-coffee/10 bg-surface text-ink hover:border-clay/50 hover:bg-white'
               }`}
             >
-              <span className="block text-base font-black">{label}</span>
+              <span className="block text-base font-black">
+                {normalizeMojibake(option.title)}
+              </span>
             </button>
           )
         })}
