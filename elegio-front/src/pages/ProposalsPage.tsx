@@ -1,11 +1,44 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
+import { useCandidates } from '../features/candidates/hooks/useCandidates'
 import { NavBar } from '../features/home/components/NavBar'
 import { ProposalHitCard } from '../features/proposals/components/ProposalHitCard'
 import { useProposalSearch } from '../features/proposals/hooks/useProposalSearch'
 
+const FILTER_CLASS =
+  'min-w-[12rem] rounded-full border border-coffee/15 bg-white px-4 py-2.5 text-sm font-semibold text-ink shadow-sm shadow-coffee/5 outline-none transition focus:border-clay focus:ring-2 focus:ring-clay/30'
+
 export function ProposalsPage() {
   const [query, setQuery] = useState('')
-  const { hits, total, isLoading, error, hasSearched } = useProposalSearch(query)
+  const [candidateId, setCandidateId] = useState<number | undefined>()
+  const [categoryId, setCategoryId] = useState<number | undefined>()
+
+  const { candidates } = useCandidates()
+  const { hits, total, isLoading, error, hasSearched } = useProposalSearch(
+    query,
+    candidateId,
+    categoryId,
+  )
+
+  const categories = useMemo(() => {
+    const seen = new Map<number, string>()
+    candidates.forEach((candidate) => {
+      candidate.category_averages.forEach((avg) => {
+        if (!seen.has(avg.category_id)) {
+          seen.set(avg.category_id, avg.category_name)
+        }
+      })
+    })
+    return Array.from(seen, ([id, name]) => ({ id, name })).sort((a, b) =>
+      a.name.localeCompare(b.name, 'es'),
+    )
+  }, [candidates])
+
+  const hasActiveFilters = candidateId !== undefined || categoryId !== undefined
+
+  const clearFilters = () => {
+    setCandidateId(undefined)
+    setCategoryId(undefined)
+  }
 
   return (
     <div className="min-h-screen bg-surface text-ink">
@@ -35,6 +68,56 @@ export function ProposalsPage() {
           />
         </div>
 
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          <label className="sr-only" htmlFor="filter-category">
+            Filtrar por categoría
+          </label>
+          <select
+            id="filter-category"
+            value={categoryId ?? ''}
+            onChange={(event) =>
+              setCategoryId(event.target.value ? Number(event.target.value) : undefined)
+            }
+            className={FILTER_CLASS}
+          >
+            <option value="">Todas las categorías</option>
+            {categories.map((category) => (
+              <option key={category.id} value={category.id}>
+                {category.name}
+              </option>
+            ))}
+          </select>
+
+          <label className="sr-only" htmlFor="filter-candidate">
+            Filtrar por candidato
+          </label>
+          <select
+            id="filter-candidate"
+            value={candidateId ?? ''}
+            onChange={(event) =>
+              setCandidateId(event.target.value ? Number(event.target.value) : undefined)
+            }
+            className={FILTER_CLASS}
+          >
+            <option value="">Todos los candidatos</option>
+            {candidates.map((candidate) => (
+              <option key={candidate.id} value={candidate.id}>
+                {candidate.presidential_candidate}
+              </option>
+            ))}
+          </select>
+
+          {hasActiveFilters && (
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="text-sm font-semibold text-clay underline-offset-4 transition hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-clay focus-visible:ring-offset-2"
+            >
+              Limpiar filtros
+            </button>
+          )}
+        </div>
+
         <section className="mt-10" aria-live="polite">
           {!hasSearched && !isLoading && (
             <p className="rounded-3xl border border-dashed border-coffee/15 bg-white/60 p-6 text-muted">
@@ -54,7 +137,8 @@ export function ProposalsPage() {
 
           {!isLoading && !error && hasSearched && hits.length === 0 && (
             <p className="rounded-3xl border border-coffee/10 bg-white p-6 text-muted">
-              No encontramos propuestas que coincidan con "{query}".
+              No encontramos propuestas que coincidan con "{query}"
+              {hasActiveFilters ? ' con los filtros seleccionados' : ''}.
             </p>
           )}
 

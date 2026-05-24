@@ -18,7 +18,12 @@ const INITIAL_STATE: SearchState = {
   hasSearched: false,
 }
 
-export function useProposalSearch(query: string, debounceMs = 350): SearchState {
+export function useProposalSearch(
+  query: string,
+  candidateId?: number,
+  categoryId?: number,
+  debounceMs = 350,
+): SearchState {
   const [state, setState] = useState<SearchState>(INITIAL_STATE)
 
   useEffect(() => {
@@ -31,7 +36,7 @@ export function useProposalSearch(query: string, debounceMs = 350): SearchState 
     let isMounted = true
     const timeoutId = setTimeout(() => {
       setState((prev) => ({ ...prev, isLoading: true, error: null }))
-      searchProposals(trimmed)
+      searchProposals(trimmed, { candidateId, categoryId })
         .then((data) => {
           if (!isMounted) return
           setState({
@@ -58,7 +63,7 @@ export function useProposalSearch(query: string, debounceMs = 350): SearchState 
       isMounted = false
       clearTimeout(timeoutId)
     }
-  }, [query, debounceMs])
+  }, [query, candidateId, categoryId, debounceMs])
 
   return state
 }
