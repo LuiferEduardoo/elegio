@@ -53,7 +53,7 @@ class ResponseOptionDoesNotBelongToQuestionError(Exception):
 async def create_answer(
     db: AsyncSession, payload: AnswerCreateWithAttempt
 ) -> tuple[Answer, bool, TestStatus]:
-    attempt = await db.get(TestAttempt, payload.test_attempt_uuid)
+    attempt = await _get_test_attempt_by_uuid(db, payload.test_attempt_uuid)
     if attempt is None or attempt.deleted_at is not None:
         raise TestAttemptNotFoundError(
             f"TestAttempt {payload.test_attempt_uuid} not found"
@@ -82,32 +82,31 @@ async def create_answer(
                 f"ResponseOption {option.id} does not belong to question {payload.question_id}"
             )
 
-    answer = Answer(**payload.model_dump())
+    existing_answer = await _get_answer_by_attempt_and_question(
+        db, attempt.id, payload.question_id
+    )
+    if existing_answer is not None:
+        answer_data = payload.model_dump(exclude={"test_attempt_uuid"})
+        for field, value in answer_data.items():
+            setattr(existing_answer, field, value)
+
+        await db.flush()
+        test_completed = await _is_test_completed(db, attempt)
+        if test_completed:
+            attempt.status = TestStatus.COMPLETED
+            attempt.finished_at = datetime.utcnow()
+
+        await db.commit()
+        await db.refresh(existing_answer)
+        await db.refresh(attempt)
+        return existing_answer, test_completed, attempt.status
+
+    answer_data = payload.model_dump(exclude={"test_attempt_uuid"})
+    answer = Answer(test_attempt_id=attempt.id, **answer_data)
     db.add(answer)
     await db.flush()
 
-    questions_total = (
-        await db.execute(
-            select(func.count(Question.id)).where(
-                Question.test_id == attempt.test_id,
-                Question.is_active.is_(True),
-                Question.deleted_at.is_(None),
-            )
-        )
-    ).scalar_one()
-
-    answered_count = (
-        await db.execute(
-            select(func.count(func.distinct(Answer.question_id))).where(
-                Answer.test_attempt_id == attempt.id,
-                Answer.deleted_at.is_(None),
-            )
-        )
-    ).scalar_one()
-
-    test_completed = (
-        questions_total > 0 and answered_count >= questions_total
-    )
+    test_completed = await _is_test_completed(db, attempt)
 
     if test_completed:
         attempt.status = TestStatus.COMPLETED
@@ -127,14 +126,7 @@ async def update_answer(
     if answer is None or answer.deleted_at is not None:
         raise AnswerNotFoundError(f"Answer {answer_id} not found")
 
-    attempt = (
-        await db.execute(
-            select(TestAttempt).where(
-                TestAttempt.uuid_test_attempt == uuid_test_attempt
-            )
-        )
-    ).scalar_one_or_none()
-
+    attempt = await _get_test_attempt_by_uuid(db, uuid_test_attempt)
     if attempt is None or attempt.deleted_at is not None:
         raise TestAttemptNotFoundError(
             f"TestAttempt {uuid_test_attempt} not found"
@@ -166,6 +158,59 @@ async def update_answer(
     await db.commit()
     await db.refresh(answer)
     return answer
+
+
+async def _get_test_attempt_by_uuid(
+    db: AsyncSession, test_attempt_uuid: str | None
+) -> TestAttempt | None:
+    if not test_attempt_uuid:
+        return None
+
+    return (
+        await db.execute(
+            select(TestAttempt).where(
+                TestAttempt.uuid == test_attempt_uuid,
+                TestAttempt.deleted_at.is_(None),
+            )
+        )
+    ).scalar_one_or_none()
+
+
+async def _get_answer_by_attempt_and_question(
+    db: AsyncSession, test_attempt_id: int, question_id: int
+) -> Answer | None:
+    return (
+        await db.execute(
+            select(Answer).where(
+                Answer.test_attempt_id == test_attempt_id,
+                Answer.question_id == question_id,
+                Answer.deleted_at.is_(None),
+            )
+        )
+    ).scalar_one_or_none()
+
+
+async def _is_test_completed(db: AsyncSession, attempt: TestAttempt) -> bool:
+    questions_total = (
+        await db.execute(
+            select(func.count(Question.id)).where(
+                Question.test_id == attempt.test_id,
+                Question.is_active.is_(True),
+                Question.deleted_at.is_(None),
+            )
+        )
+    ).scalar_one()
+
+    answered_count = (
+        await db.execute(
+            select(func.count(func.distinct(Answer.question_id))).where(
+                Answer.test_attempt_id == attempt.id,
+                Answer.deleted_at.is_(None),
+            )
+        )
+    ).scalar_one()
+
+    return questions_total > 0 and answered_count >= questions_total
 
 
 async def get_affinity(
