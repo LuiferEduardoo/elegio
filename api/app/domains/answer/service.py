@@ -16,6 +16,8 @@ from app.domains.category.models import Category
 from app.domains.posture.models import Posture
 from app.domains.proposal.models import Proposal
 from app.domains.question.models import Question
+from app.domains.rhetorical_weight.models import RhetoricalWeight
+from app.domains.rhetorical_weight.service import apply_rhetorical_weight
 from app.domains.response_option.models import ResponseOption
 from app.domains.session.models import Session as VisitorSession
 from app.domains.test_attempt.models import TestAttempt, TestStatus
@@ -283,22 +285,34 @@ async def get_affinity(
                 Proposal.candidate_id.label("candidate_id"),
                 Proposal.category_id.label("category_id"),
                 func.avg(Posture.axis_value).label("avg_value"),
+                RhetoricalWeight.value.label("rhetorical_weight"),
             )
             .select_from(Proposal)
             .join(Posture, Posture.proposal_id == Proposal.id)
+            .outerjoin(
+                RhetoricalWeight,
+                (RhetoricalWeight.candidate_id == Proposal.candidate_id)
+                & (RhetoricalWeight.category_id == Proposal.category_id)
+                & (RhetoricalWeight.deleted_at.is_(None)),
+            )
             .where(
                 Proposal.deleted_at.is_(None),
                 Posture.deleted_at.is_(None),
                 Proposal.category_id.in_(user_by_category.keys()),
             )
-            .group_by(Proposal.candidate_id, Proposal.category_id)
+            .group_by(
+                Proposal.candidate_id,
+                Proposal.category_id,
+                RhetoricalWeight.value,
+            )
         )
     ).all()
 
     candidate_vectors: dict[int, dict[int, float]] = {}
     for row in candidate_rows:
-        candidate_vectors.setdefault(row.candidate_id, {})[row.category_id] = float(
-            row.avg_value
+        weight = float(row.rhetorical_weight) if row.rhetorical_weight is not None else None
+        candidate_vectors.setdefault(row.candidate_id, {})[row.category_id] = (
+            apply_rhetorical_weight(float(row.avg_value), weight)
         )
 
     if not candidate_vectors:
