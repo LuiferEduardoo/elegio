@@ -46,3 +46,28 @@ export type ProposalSearchResponse = {
   total: number
   items: ProposalHit[]
 }
+
+export type ProposalPosture = {
+  id: number
+  axis_value: number
+}
+
+export type Proposal = {
+  id: number
+  title: string
+  summary: string | null
+  full_text: string | null
+  category: ProposalCategory
+  candidate: ProposalCandidate
+  postures: ProposalPosture[]
+  taggings: ProposalTagging[]
+  sources: ProposalSource[]
+  created_at: string
+}
+
+export type ProposalListResponse = {
+  items: Proposal[]
+  total: number
+  limit: number
+  offset: number
+}

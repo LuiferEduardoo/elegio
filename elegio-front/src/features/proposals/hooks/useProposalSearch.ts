@@ -10,6 +10,39 @@ type SearchState = {
   hasSearched: boolean
 }
 
+function mergeHitsByProposal(hits: ProposalHit[]): ProposalHit[] {
+  const hitsByProposal = new Map<number, ProposalHit>()
+
+  hits.forEach((hit) => {
+    const current = hitsByProposal.get(hit.proposal_id)
+    if (!current || hit.score > current.score) {
+      hitsByProposal.set(hit.proposal_id, hit)
+    }
+  })
+
+  return Array.from(hitsByProposal.values()).sort((a, b) => b.score - a.score)
+}
+
+async function searchAcrossCandidates(
+  query: string,
+  candidateIds: number[],
+  categoryId?: number,
+): Promise<Pick<SearchState, 'hits' | 'total'>> {
+  if (candidateIds.length === 0) {
+    const data = await searchProposals(query, { categoryId, limit: 50 })
+    return { hits: data.items, total: data.total }
+  }
+
+  const responses = await Promise.all(
+    candidateIds.map((candidateId) =>
+      searchProposals(query, { candidateId, categoryId, limit: 50 }),
+    ),
+  )
+  const hits = mergeHitsByProposal(responses.flatMap((response) => response.items))
+
+  return { hits, total: hits.length }
+}
+
 const INITIAL_STATE: SearchState = {
   hits: [],
   total: 0,
@@ -20,7 +53,7 @@ const INITIAL_STATE: SearchState = {
 
 export function useProposalSearch(
   query: string,
-  candidateId?: number,
+  candidateIds: number[],
   categoryId?: number,
   debounceMs = 350,
 ): SearchState {
@@ -29,19 +62,18 @@ export function useProposalSearch(
   useEffect(() => {
     const trimmed = query.trim()
     if (trimmed.length === 0) {
-      setState(INITIAL_STATE)
       return
     }
 
     let isMounted = true
     const timeoutId = setTimeout(() => {
       setState((prev) => ({ ...prev, isLoading: true, error: null }))
-      searchProposals(trimmed, { candidateId, categoryId })
-        .then((data) => {
+      searchAcrossCandidates(trimmed, candidateIds, categoryId)
+        .then(({ hits, total }) => {
           if (!isMounted) return
           setState({
-            hits: data.items,
-            total: data.total,
+            hits,
+            total,
             isLoading: false,
             error: null,
             hasSearched: true,
@@ -63,7 +95,7 @@ export function useProposalSearch(
       isMounted = false
       clearTimeout(timeoutId)
     }
-  }, [query, candidateId, categoryId, debounceMs])
+  }, [query, candidateIds, categoryId, debounceMs])
 
-  return state
+  return query.trim().length === 0 ? INITIAL_STATE : state
 }
