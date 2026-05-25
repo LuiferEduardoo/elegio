@@ -1,9 +1,13 @@
+import { normalizeMojibake } from '../../../utils/text'
+
 type CandidateTroublesProps = {
   troubles: string
 }
 
 export function CandidateTroubles({ troubles }: CandidateTroublesProps) {
-  if (!troubles?.trim()) {
+  const normalizedTroubles = normalizeMojibake(troubles)
+
+  if (!normalizedTroubles.trim()) {
     return null
   }
 
@@ -13,7 +17,7 @@ export function CandidateTroubles({ troubles }: CandidateTroublesProps) {
       <h2 className="mt-2 font-display text-3xl tracking-[-0.03em] text-ink">
         Lo que la prensa señaló.
       </h2>
-      <p className="mt-5 text-base leading-7 text-ink/80">{troubles}</p>
+      <p className="mt-5 text-base leading-7 text-ink/80">{normalizedTroubles}</p>
     </section>
   )
 }

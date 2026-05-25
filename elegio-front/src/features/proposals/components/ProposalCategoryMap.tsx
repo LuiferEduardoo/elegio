@@ -1,3 +1,4 @@
+import { normalizeMojibake } from '../../../utils/text'
 import type { Proposal } from '../types'
 import { ProposalCard } from './ProposalCard'
 
@@ -24,8 +25,8 @@ function groupProposalsByCandidateAndCategory(proposals: Proposal[]): CandidateG
   proposals.forEach((proposal) => {
     const candidateGroup = candidates.get(proposal.candidate.id) ?? {
       candidateId: proposal.candidate.id,
-      candidateName: proposal.candidate.presidential_candidate,
-      politicalGroup: proposal.candidate.political_group,
+      candidateName: normalizeMojibake(proposal.candidate.presidential_candidate),
+      politicalGroup: normalizeMojibake(proposal.candidate.political_group),
       categories: [],
     }
 
@@ -36,7 +37,7 @@ function groupProposalsByCandidateAndCategory(proposals: Proposal[]): CandidateG
     if (!categoryGroup) {
       categoryGroup = {
         categoryId: proposal.category.id,
-        categoryName: proposal.category.name,
+        categoryName: normalizeMojibake(proposal.category.name),
         proposals: [],
       }
       candidateGroup.categories.push(categoryGroup)

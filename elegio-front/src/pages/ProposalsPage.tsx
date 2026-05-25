@@ -10,6 +10,7 @@ import { ProposalPagination } from '../features/proposals/components/ProposalPag
 import { useProposals } from '../features/proposals/hooks/useProposals'
 import { useProposalSearch } from '../features/proposals/hooks/useProposalSearch'
 import { Footer } from '../components/Footer'
+import { normalizeMojibake } from '../utils/text'
 
 const PAGE_SIZE = 6
 
@@ -46,7 +47,7 @@ export function ProposalsPage() {
     candidates.forEach((candidate) => {
       candidate.category_averages.forEach((avg) => {
         if (!seen.has(avg.category_id)) {
-          seen.set(avg.category_id, avg.category_name)
+          seen.set(avg.category_id, normalizeMojibake(avg.category_name))
         }
       })
     })

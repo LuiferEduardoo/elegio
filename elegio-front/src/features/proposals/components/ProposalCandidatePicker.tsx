@@ -1,4 +1,5 @@
 import fallbackCandidateImage from '../../../assets/candidate-fallback.svg'
+import { normalizeMojibake } from '../../../utils/text'
 import type { Candidate } from '../../candidates/types'
 
 type ProposalCandidatePickerProps = {
@@ -51,6 +52,8 @@ export function ProposalCandidatePicker({
         {candidates.map((candidate) => {
           const isSelected = selectedCandidateIds.includes(candidate.id)
           const photo = candidate.photo_president || fallbackCandidateImage
+          const presidentialCandidate = normalizeMojibake(candidate.presidential_candidate)
+          const politicalGroup = normalizeMojibake(candidate.political_group)
 
           return (
             <button
@@ -67,7 +70,7 @@ export function ProposalCandidatePicker({
               <div className="flex flex-col items-center text-center sm:flex-row sm:text-left">
                 <img
                   src={photo}
-                  alt={candidate.presidential_candidate}
+                  alt={presidentialCandidate}
                   className={`size-20 shrink-0 rounded-2xl border object-cover object-top transition sm:size-16 ${
                     isSelected ? 'border-white/30' : 'border-coffee/10'
                   }`}
@@ -80,14 +83,14 @@ export function ProposalCandidatePicker({
 
                 <span className="mt-3 min-w-0 sm:ml-3 sm:mt-0">
                   <span className="block text-sm font-black leading-tight">
-                    {candidate.presidential_candidate}
+                    {presidentialCandidate}
                   </span>
                   <span
                     className={`mt-1 block text-xs font-semibold leading-tight ${
                       isSelected ? 'text-white/75' : 'text-muted'
                     }`}
                   >
-                    {candidate.political_group}
+                    {politicalGroup}
                   </span>
                 </span>
               </div>

@@ -1,3 +1,5 @@
+import { normalizeMojibake } from '../../../utils/text'
+
 type ProposalCategoryFilterProps = {
   categories: Array<{ id: number; name: string }>
   selectedCategoryId: number | undefined
@@ -54,7 +56,7 @@ export function ProposalCategoryFilter({
                   : 'border border-coffee/15 bg-surface text-ink hover:border-clay/40 hover:bg-white'
               }`}
             >
-              {category.name}
+              {normalizeMojibake(category.name)}
             </button>
           )
         })}
