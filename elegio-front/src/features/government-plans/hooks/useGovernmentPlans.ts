@@ -8,31 +8,32 @@ type GovernmentPlansState = {
   error: string | null
 }
 
+type GovernmentPlansRequestState = GovernmentPlansState & {
+  candidateId: string | null
+}
+
 export function useGovernmentPlans(candidateId: string | undefined): GovernmentPlansState {
-  const [state, setState] = useState<GovernmentPlansState>({
+  const [state, setState] = useState<GovernmentPlansRequestState>({
+    candidateId: null,
     plans: [],
-    isLoading: true,
+    isLoading: false,
     error: null,
   })
 
   useEffect(() => {
-    if (!candidateId) {
-      setState({ plans: [], isLoading: false, error: null })
-      return
-    }
+    if (!candidateId) return
 
     let isMounted = true
-    setState({ plans: [], isLoading: true, error: null })
 
     getGovernmentPlans(candidateId)
       .then((data) => {
         if (isMounted) {
-          setState({ plans: data.items, isLoading: false, error: null })
+          setState({ candidateId, plans: data.items, isLoading: false, error: null })
         }
       })
       .catch((error: Error) => {
         if (isMounted) {
-          setState({ plans: [], isLoading: false, error: error.message })
+          setState({ candidateId, plans: [], isLoading: false, error: error.message })
         }
       })
 
@@ -40,6 +41,14 @@ export function useGovernmentPlans(candidateId: string | undefined): GovernmentP
       isMounted = false
     }
   }, [candidateId])
+
+  if (!candidateId) {
+    return { plans: [], isLoading: false, error: null }
+  }
+
+  if (state.candidateId !== candidateId) {
+    return { plans: [], isLoading: true, error: null }
+  }
 
   return state
 }

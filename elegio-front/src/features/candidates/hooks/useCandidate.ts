@@ -8,31 +8,32 @@ type CandidateDetailState = {
   error: string | null
 }
 
+type CandidateDetailRequestState = CandidateDetailState & {
+  candidateId: string | null
+}
+
 export function useCandidate(id: string | undefined): CandidateDetailState {
-  const [state, setState] = useState<CandidateDetailState>({
+  const [state, setState] = useState<CandidateDetailRequestState>({
+    candidateId: null,
     candidate: null,
-    isLoading: true,
+    isLoading: false,
     error: null,
   })
 
   useEffect(() => {
-    if (!id) {
-      setState({ candidate: null, isLoading: false, error: 'Candidato no encontrado.' })
-      return
-    }
+    if (!id) return
 
     let isMounted = true
-    setState({ candidate: null, isLoading: true, error: null })
 
     getCandidate(id)
       .then((data) => {
         if (isMounted) {
-          setState({ candidate: data, isLoading: false, error: null })
+          setState({ candidateId: id, candidate: data, isLoading: false, error: null })
         }
       })
       .catch((error: Error) => {
         if (isMounted) {
-          setState({ candidate: null, isLoading: false, error: error.message })
+          setState({ candidateId: id, candidate: null, isLoading: false, error: error.message })
         }
       })
 
@@ -40,6 +41,14 @@ export function useCandidate(id: string | undefined): CandidateDetailState {
       isMounted = false
     }
   }, [id])
+
+  if (!id) {
+    return { candidate: null, isLoading: false, error: 'Candidato no encontrado.' }
+  }
+
+  if (state.candidateId !== id) {
+    return { candidate: null, isLoading: true, error: null }
+  }
 
   return state
 }
