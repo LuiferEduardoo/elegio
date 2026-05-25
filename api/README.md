@@ -507,6 +507,8 @@ Errors:
 
 A `Candidate` represents a presidential ticket (presidential + vice-presidential candidate, political group, photos, political spectrum).
 
+> **About rhetorical weights.** A `RhetoricalWeight` ([app/domains/rhetorical_weight/models.py](app/domains/rhetorical_weight/models.py)) is a per-`(candidate_id, category_id)` multiplier that captures how strongly a candidate amplifies their position on a given axis rhetorically. Each row carries a `value` in `[0.0, 5.0]` (enforced by `CheckConstraint ck_rhetorical_weights_value_range`) and an optional `editorial_justification` (`Text`). The two FKs use `ON DELETE CASCADE`. Semantics of `value`: `1.0` = no change; `> 1.0` pushes the average toward the active pole; `< 1.0` flattens it toward the center; `0.0` collapses it to the center. The table is consumed internally only — it adjusts the per-category averages surfaced by the Candidates and Answers endpoints — and has no REST endpoints of its own. Created by migration `c3e8f1a2b9d4_create_rhetorical_weights_table` and widened to `[0.0, 5.0]` by `d7a2b4f01e8c_expand_rhetorical_weight_range_to_5`.
+
 #### `GET /api/v1/candidates`
 
 List candidates, ordered by `id ASC`.
@@ -541,6 +543,9 @@ Response `200 OK`:
           "positive_pole_name": "Estado",
           "positive_pole_description": "Educación pública, gratuita y gestionada por el Estado.",
           "average": 0.65,
+          "adjusted_average": 0.76,
+          "rhetorical_weight": 1.5,
+          "editorial_justification": "El candidato enfatiza educación pública en cada intervención pública.",
           "proposals_count": 4
         }
       ]
@@ -554,14 +559,28 @@ Response `200 OK`:
 
 Each candidate carries a `category_averages` array — a per-category roll-up of every `Posture` attached to that candidate's proposals. Each entry exposes the category's axis metadata (`weight`, `negative_pole_*`, `positive_pole_*`) plus:
 
-| Field             | Type    | Description                                                                                  |
-| ----------------- | ------- | -------------------------------------------------------------------------------------------- |
-| `average`         | `float` | Mean of `posture.axis_value` over the candidate's proposals in this category (`[-1, +1]`).   |
-| `proposals_count` | `int`   | Number of distinct proposals contributing to `average`.                                       |
+| Field                     | Type           | Description                                                                                                                            |
+| ------------------------- | -------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `average`                 | `float`        | Mean of `posture.axis_value` over the candidate's proposals in this category (`[-1, +1]`).                                             |
+| `adjusted_average`        | `float`        | `average` after applying the candidate's rhetorical weight for this category (`[-1, +1]`). Equals `average` when no weight is set.     |
+| `rhetorical_weight`       | `float \| null` | The `RhetoricalWeight.value` used to compute `adjusted_average`. `null` when no row exists for `(candidate_id, category_id)`.          |
+| `editorial_justification` | `str \| null`   | `RhetoricalWeight.editorial_justification` for that row, if any.                                                                       |
+| `proposals_count`         | `int`          | Number of distinct proposals contributing to `average`.                                                                                |
+
+The adjustment formula lives in [`apply_rhetorical_weight`](app/domains/rhetorical_weight/service.py):
+
+```
+adjusted_average = sign(average) * |average|^(1 / weight)
+```
+
+Edge cases:
+
+- `weight is None` or `weight == 1.0` → `adjusted_average == average`.
+- `weight <= 0` → `adjusted_average == 0.0`.
 
 Notes:
 
-- The aggregation runs in a single `GROUP BY candidate_id, category_id` query over the candidates on the current page — no N+1.
+- The aggregation runs in a single `GROUP BY candidate_id, category_id` query over the candidates on the current page — no N+1. Rhetorical weights are loaded in a single companion query keyed by the same `(candidate_id, category_id)` pairs.
 - Candidates with no rated proposals get `category_averages: []`.
 - Soft-deleted proposals, postures, and categories are excluded.
 
@@ -603,6 +622,8 @@ A `Proposal` is a single policy item from a candidate. It is always returned wit
 > | `coder_name`  | `String(255)`                                  |    no    | Identifier of the coder (LLM name + version, or human reviewer handle).  |
 >
 > The `confidence`, `reasoning`, `ambiguities`, and `coder_type` columns were added by migration `b7f4c2a19d6e_add_missing_posture_metadata`. The Proposal endpoints only surface `id` and `axis_value` — the remaining fields are kept for downstream auditing and analysis (see the [analysis](../analysis) service).
+>
+> **Enum casing.** Both `confidence` and `coder_type` persist their values **lowercase** (`"high" | "medium" | "low"`, `"llm" | "human"`). The original SQL dump used uppercase labels; migrations `e91f4c5a72b0_accept_both_cases_in_posture_enums` (intermediate, accepts both) and `f0c8a3e2b9d1_lowercase_posture_enums` (final, normalizes the column definition + data) bring everything in line with the Python `enum`. Any new dump or seed must use lowercase values.
 >
 > **About categories.** A `Category` ([app/domains/category/models.py](app/domains/category/models.py)) is the descriptive axis a `Posture.axis_value` is placed on (the same `-1.0` / `+1.0` scale). In addition to `id`, `name`, and `weight`, every category persists the labels and descriptions of its two poles:
 >
@@ -1081,8 +1102,8 @@ Compute the affinity between the current test attempt and every candidate that h
 The algorithm — implemented in [`service.get_affinity`](app/domains/answer/service.py) — works as follows:
 
 1. **User vector** — for every category in which the user answered at least one question, compute `user_avg[c] = mean(response_option.value)`.
-2. **Candidate vector** — for every candidate, compute `candidate_avg[c] = mean(posture.axis_value)` over their proposals in the same categories.
-3. **Weighted Manhattan distance** — `distance = Σ |user_avg[c] − candidate_avg[c]| × weight[c]`.
+2. **Candidate vector** — for every candidate, compute `candidate_avg[c] = mean(posture.axis_value)` over their proposals in the same categories, then apply the candidate's rhetorical weight for that category via [`apply_rhetorical_weight`](app/domains/rhetorical_weight/service.py) (`sign(avg) * |avg|^(1/weight)`). Candidates with `rhetorical_weight > 1` in a category therefore appear more extreme on that axis when computing affinity; the response field names are unchanged.
+3. **Weighted Manhattan distance** — `distance = Σ |user_avg[c] − candidate_avg[c]| × weight[c]` (using the adjusted candidate vector).
 4. **Normalized affinity** — axis values are in `[-1, +1]`, so the max possible per-category gap is `2`. The score is normalized to `[0, 1]`:
    `affinity = 1 − distance / Σ (2 × weight[c])`.
 
