@@ -21,6 +21,7 @@ from app.domains.proposal import models as _proposal_models  # noqa: F401
 from app.domains.proposal_chunk import models as _proposal_chunk_models  # noqa: F401
 from app.domains.question import models as _question_models  # noqa: F401
 from app.domains.response_option import models as _response_option_models  # noqa: F401
+from app.domains.rhetorical_weight import models as _rhetorical_weight_models  # noqa: F401
 from app.domains.session import models as _session_models  # noqa: F401
 from app.domains.source import models as _source_models  # noqa: F401
 from app.domains.tagging import models as _tagging_models  # noqa: F401
