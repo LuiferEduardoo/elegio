@@ -18,8 +18,13 @@ export function CandidateCard({ candidate }: CandidateCardProps) {
   const politicalSpectrum = normalizeMojibake(candidate.political_spectrum)
 
   return (
-    <article className="group flex flex-col overflow-hidden rounded-[2rem] border border-coffee/10 bg-white shadow-sm shadow-coffee/5 transition duration-300 hover:-translate-y-1 hover:shadow-2xl hover:shadow-coffee/10">
-      <div className="relative h-72 bg-gradient-to-br from-white via-surface to-gold/10">
+    <article className="group relative flex flex-col rounded-[2rem] border border-coffee/10 bg-white shadow-sm shadow-coffee/5 transition duration-300 hover:-translate-y-1 hover:shadow-2xl hover:shadow-jade/20">
+      <div
+        className="pointer-events-none absolute -inset-1 rounded-[2.2rem] bg-jade/20 opacity-0 blur-xl transition duration-300 group-hover:opacity-100"
+        aria-hidden="true"
+      />
+      <div className="relative z-10 flex flex-1 flex-col overflow-hidden rounded-[2rem] bg-white">
+      <div className="relative h-72 overflow-hidden bg-gradient-to-br from-white via-surface to-gold/10">
         <img
           src={imageSource}
           alt={presidentialCandidate}
@@ -66,6 +71,7 @@ export function CandidateCard({ candidate }: CandidateCardProps) {
         >
           Ver candidato →
         </Link>
+      </div>
       </div>
     </article>
   )
