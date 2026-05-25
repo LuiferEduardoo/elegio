@@ -9,15 +9,7 @@ from app.domains.category.models import Category
 from app.domains.posture.models import Posture
 from app.domains.proposal.models import Proposal
 from app.domains.rhetorical_weight.models import RhetoricalWeight
-
-
-def _apply_rhetorical_weight(average: float, weight: float | None) -> float:
-    if weight is None or weight == 1.0:
-        return average
-    if weight <= 0:
-        return 0.0
-    sign = 1.0 if average > 0 else (-1.0 if average < 0 else 0.0)
-    return sign * (abs(average) ** (1.0 / weight))
+from app.domains.rhetorical_weight.service import apply_rhetorical_weight
 
 
 class CandidateNotFoundError(Exception):
@@ -123,7 +115,7 @@ async def get_category_averages_by_candidate(
                 positive_pole_name=row.positive_pole_name,
                 positive_pole_description=row.positive_pole_description,
                 average=avg_value,
-                adjusted_average=_apply_rhetorical_weight(avg_value, weight),
+                adjusted_average=apply_rhetorical_weight(avg_value, weight),
                 rhetorical_weight=weight,
                 editorial_justification=row.editorial_justification,
                 proposals_count=int(row.proposals_count),
