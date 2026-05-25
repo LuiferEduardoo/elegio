@@ -14,6 +14,20 @@ class CategoryAverage(BaseModel):
     average: float = Field(
         description="Mean of posture.axis_value across the candidate's proposals in this category"
     )
+    adjusted_average: float = Field(
+        description=(
+            "Average after applying the candidate's rhetorical weight for this category: "
+            "sign(avg) * |avg|^(1/weight). Defaults to `average` when no weight is set."
+        )
+    )
+    rhetorical_weight: float | None = Field(
+        default=None,
+        description="Rhetorical weight (0.0-2.0) used to compute adjusted_average; null if not set",
+    )
+    editorial_justification: str | None = Field(
+        default=None,
+        description="Editorial rationale for the rhetorical weight, if any",
+    )
     proposals_count: int = Field(
         ge=0, description="Number of rated proposals contributing to the average"
     )

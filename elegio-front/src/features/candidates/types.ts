@@ -7,6 +7,9 @@ export type CategoryAverage = {
   positive_pole_name: string
   positive_pole_description: string
   average: number
+  rhetorical_weight: number | null
+  editorial_justification: string | null
+  adjusted_average: number
   proposals_count: number
 }
 

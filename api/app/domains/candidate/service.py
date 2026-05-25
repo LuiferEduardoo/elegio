@@ -8,6 +8,16 @@ from app.domains.candidate.schemas import CategoryAverage
 from app.domains.category.models import Category
 from app.domains.posture.models import Posture
 from app.domains.proposal.models import Proposal
+from app.domains.rhetorical_weight.models import RhetoricalWeight
+
+
+def _apply_rhetorical_weight(average: float, weight: float | None) -> float:
+    if weight is None or weight == 1.0:
+        return average
+    if weight <= 0:
+        return 0.0
+    sign = 1.0 if average > 0 else (-1.0 if average < 0 else 0.0)
+    return sign * (abs(average) ** (1.0 / weight))
 
 
 class CandidateNotFoundError(Exception):
@@ -65,10 +75,18 @@ async def get_category_averages_by_candidate(
                 Category.positive_pole_description.label("positive_pole_description"),
                 func.avg(Posture.axis_value).label("avg_value"),
                 func.count(func.distinct(Proposal.id)).label("proposals_count"),
+                RhetoricalWeight.value.label("rhetorical_weight"),
+                RhetoricalWeight.editorial_justification.label("editorial_justification"),
             )
             .select_from(Proposal)
             .join(Posture, Posture.proposal_id == Proposal.id)
             .join(Category, Proposal.category_id == Category.id)
+            .outerjoin(
+                RhetoricalWeight,
+                (RhetoricalWeight.candidate_id == Proposal.candidate_id)
+                & (RhetoricalWeight.category_id == Category.id)
+                & (RhetoricalWeight.deleted_at.is_(None)),
+            )
             .where(
                 Proposal.candidate_id.in_(ids),
                 Proposal.deleted_at.is_(None),
@@ -84,6 +102,8 @@ async def get_category_averages_by_candidate(
                 Category.negative_pole_description,
                 Category.positive_pole_name,
                 Category.positive_pole_description,
+                RhetoricalWeight.value,
+                RhetoricalWeight.editorial_justification,
             )
             .order_by(Proposal.candidate_id, Category.id)
         )
@@ -91,6 +111,8 @@ async def get_category_averages_by_candidate(
 
     averages: dict[int, list[CategoryAverage]] = {}
     for row in rows:
+        avg_value = float(row.avg_value)
+        weight = float(row.rhetorical_weight) if row.rhetorical_weight is not None else None
         averages.setdefault(row.candidate_id, []).append(
             CategoryAverage(
                 category_id=row.category_id,
@@ -100,7 +122,10 @@ async def get_category_averages_by_candidate(
                 negative_pole_description=row.negative_pole_description,
                 positive_pole_name=row.positive_pole_name,
                 positive_pole_description=row.positive_pole_description,
-                average=float(row.avg_value),
+                average=avg_value,
+                adjusted_average=_apply_rhetorical_weight(avg_value, weight),
+                rhetorical_weight=weight,
+                editorial_justification=row.editorial_justification,
                 proposals_count=int(row.proposals_count),
             )
         )

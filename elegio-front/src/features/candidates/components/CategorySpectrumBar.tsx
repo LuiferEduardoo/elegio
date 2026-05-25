@@ -19,7 +19,7 @@ const formatAverage = (value: number) => {
 }
 
 export function CategorySpectrumBar({ category, userAverage }: CategorySpectrumBarProps) {
-  const average = clampAverage(category.average)
+  const average = clampAverage(category.adjusted_average)
   const leansPositive = average > 0
   const leansNegative = average < 0
 
