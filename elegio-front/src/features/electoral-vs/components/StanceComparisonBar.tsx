@@ -58,12 +58,12 @@ export function StanceComparisonBar({
           {withStance.map(({ candidate, average, color }) => (
             <SpectrumMarker
               key={candidate.id}
-              position={toPosition(average.average)}
-              value={average.average}
+              position={toPosition(average.adjusted_average)}
+              value={average.adjusted_average}
               label={normalizeMojibake(candidate.presidential_candidate)}
               tone="candidate"
               colorClass={color}
-              hint={leanHint(average.average)}
+              hint={leanHint(average.adjusted_average)}
             />
           ))}
         </div>
@@ -81,7 +81,7 @@ export function StanceComparisonBar({
             <span className="max-w-[12rem] truncate">
               {normalizeMojibake(candidate.presidential_candidate)}
             </span>
-            <span className="text-muted">{formatAverage(average.average)}</span>
+            <span className="text-muted">{formatAverage(average.adjusted_average)}</span>
           </span>
         ))}
       </div>
