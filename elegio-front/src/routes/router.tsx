@@ -1,8 +1,10 @@
 import { createBrowserRouter } from 'react-router'
 import { CandidateDetailPage } from '../pages/CandidateDetailPage'
+import { ElectoralVsPage } from '../pages/ElectoralVsPage'
 import { HomePage } from '../pages/HomePage'
 import { MethodologyPage } from '../pages/MethodologyPage'
 import { ProposalsPage } from '../pages/ProposalsPage'
+import { ResultsPage } from '../pages/ResultsPage'
 import { TestPage } from '../pages/TestPage'
 import { PrivacyPolicyPage } from '../pages/PrivacyPolicyPage'
 import { CookiesPolicyPage } from '../pages/CookiesPolicyPage'
@@ -22,6 +24,10 @@ export const router = createBrowserRouter([
         element: <ProposalsPage />,
       },
       {
+        path: ROUTE_PATHS.electoralVs,
+        element: <ElectoralVsPage />,
+      },
+      {
         path: ROUTE_PATHS.candidateDetail,
         element: <CandidateDetailPage />,
       },
@@ -34,6 +40,10 @@ export const router = createBrowserRouter([
         element: <TestPage />,
       },
       {
+        path: ROUTE_PATHS.results,
+        element: <ResultsPage />,
+      },
+      {
         path: ROUTE_PATHS.privacy,
         element: <PrivacyPolicyPage />,
       },
@@ -44,4 +54,3 @@ export const router = createBrowserRouter([
     ],
   },
 ])
-

@@ -4,6 +4,7 @@ import { Link } from 'react-router'
 const NAV_LINKS = [
   { href: '/', label: 'Inicio' },
   { href: '/propuestas', label: 'Propuestas' },
+  { href: '/vs-electoral', label: 'VS Electoral' },
   { href: '/test', label: 'Match electoral ✦', isInteractive: true },
   { href: '/metodologia', label: 'Metodología' },
 ]
