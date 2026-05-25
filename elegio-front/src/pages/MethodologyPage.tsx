@@ -28,15 +28,21 @@ const STEPS: Step[] = [
   },
   {
     number: '04',
+    title: 'Ponderación retórica',
+    body:
+      'Algunas fórmulas defienden la misma posición con mucha más intensidad discursiva que otras. Para reflejarlo asignamos un peso retórico editorial por (candidato, categoría) en un rango de 0.0 a 5.0, acompañado de una justificación pública. El peso no cambia las propuestas: re-escala el promedio del candidato en esa categoría arrastrándolo más hacia el polo que ya ocupa cuando es alto, o aplanándolo hacia el centro cuando es bajo.',
+  },
+  {
+    number: '05',
     title: 'Búsqueda híbrida',
     body:
       'El buscador combina búsqueda semántica (embeddings multilingüe-e5-large sobre Qdrant) con búsqueda léxica (BM25). Los dos rankings se fusionan con Reciprocal Rank Fusion (RRF, k=60) para que un término exacto y una intención parecida pesen ambos.',
   },
   {
-    number: '05',
+    number: '06',
     title: 'Test de afinidad',
     body:
-      'El test compara tus respuestas con las posiciones agregadas de cada candidatura por categoría. No te dice por quién votar: te muestra qué tan cerca o lejos quedan las propuestas de cada fórmula respecto a tus posturas, ponderando por la importancia que vos diste a cada tema.',
+      'El test compara tus respuestas con las posiciones agregadas de cada candidatura por categoría (ya ajustadas por su peso retórico). No te dice por quién votar: te muestra qué tan cerca o lejos quedan las propuestas de cada fórmula respecto a tus posturas, ponderando por la importancia que vos diste a cada tema.',
   },
 ]
 
@@ -52,6 +58,12 @@ const FORMULAS: Formula[] = [
     expression: 'avg(c) = (Σ pᵢ) / N',
     usage:
       'Por cada candidato y cada categoría promediamos los axis_value (-1.0 / +1.0) de sus propuestas. Es lo que ves en las tarjetas: el "centro de masa" de su discurso en ese eje.',
+  },
+  {
+    name: 'Ajuste retórico del promedio',
+    expression: 'adjusted_avg(c, k) = sign(avg) · |avg|^(1 / w)',
+    usage:
+      'Cada par (candidato, categoría) puede tener un peso retórico w ∈ [0.0, 5.0]. La fórmula preserva el signo del promedio y reescala su magnitud: con w = 1 no cambia nada, con w > 1 el valor se arrastra más rápido hacia el polo (|avg| crece), y con w < 1 se aplana hacia el centro. Si w = 0 colapsa a 0. Este ajuste alimenta tanto los promedios que ves en las tarjetas como el vector del candidato (cₖ) en la distancia de Manhattan del test.',
   },
   {
     name: 'Embedding multilingüe',
@@ -82,7 +94,7 @@ const FORMULAS: Formula[] = [
     expression:
       'd(u, c) = Σₖ wₖ · |uₖ − cₖ|\nafinidad(u, c) = 1 − d(u, c) / (2 · Σₖ wₖ)',
     usage:
-      'Tu afinidad con cada candidato se calcula como la distancia de Manhattan ponderada entre tu vector de respuestas y el suyo, categoría por categoría. uₖ es tu posición promedio en la categoría k, cₖ la del candidato (promedio de sus postures) y wₖ el peso de esa categoría. Dividimos entre la distancia máxima posible (2·Σwₖ, porque cada eje vive en [−1, +1]) para que el resultado quede en [0, 1] y lo mostramos como porcentaje: 100% es coincidencia perfecta, 0% es oposición total. Elegimos Manhattan en vez de euclidiana para que cada categoría aporte de forma lineal, sin penalizar desproporcionadamente desacuerdos grandes en un solo eje.',
+      'Tu afinidad con cada candidato se calcula como la distancia de Manhattan ponderada entre tu vector de respuestas y el suyo, categoría por categoría. uₖ es tu posición promedio en la categoría k, cₖ la del candidato (promedio de sus postures ya ajustado por el peso retórico) y wₖ el peso de esa categoría. Dividimos entre la distancia máxima posible (2·Σwₖ, porque cada eje vive en [−1, +1]) para que el resultado quede en [0, 1] y lo mostramos como porcentaje: 100% es coincidencia perfecta, 0% es oposición total. Elegimos Manhattan en vez de euclidiana para que cada categoría aporte de forma lineal, sin penalizar desproporcionadamente desacuerdos grandes en un solo eje.',
   },
 ]
 
