@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
+import { useSearchParams } from 'react-router'
 import { Footer } from '../components/Footer'
 import { useCandidates } from '../features/candidates/hooks/useCandidates'
 import { CandidateVsSelector } from '../features/electoral-vs/components/CandidateVsSelector'
@@ -14,8 +15,42 @@ import { NavBar } from '../features/home/components/NavBar'
 
 export function ElectoralVsPage() {
   const { candidates, isLoading, error } = useCandidates()
-  const [selectedCandidateIds, setSelectedCandidateIds] = useState<number[]>([])
-  const [selectedCategoryId, setSelectedCategoryId] = useState<number | undefined>()
+  const [searchParams, setSearchParams] = useSearchParams()
+
+  const selectedCandidateIds = useMemo(() => {
+    const raw = searchParams.get('candidates')
+    if (!raw) return []
+    return raw
+      .split(',')
+      .map(Number)
+      .filter((n) => Number.isFinite(n) && n > 0)
+      .slice(0, MAX_SELECTED_CANDIDATES)
+  }, [searchParams])
+  const selectedCategoryId = useMemo(() => {
+    const raw = searchParams.get('category')
+    if (!raw) return undefined
+    const n = Number(raw)
+    return Number.isFinite(n) && n > 0 ? n : undefined
+  }, [searchParams])
+
+  const updateParams = (mutator: (params: URLSearchParams) => void) => {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev)
+        mutator(next)
+        return next
+      },
+      { replace: true },
+    )
+  }
+
+  const writeCandidates = (ids: number[]) => {
+    updateParams((params) => {
+      if (ids.length > 0) params.set('candidates', ids.join(','))
+      else params.delete('candidates')
+    })
+  }
+
   const categories = useMemo(() => getCategoryOptions(candidates), [candidates])
   const selectedCandidates = useMemo(
     () => candidates.filter((candidate) => selectedCandidateIds.includes(candidate.id)),
@@ -25,12 +60,20 @@ export function ElectoralVsPage() {
   const comparison = useElectoralComparison(selectedCandidateIds, selectedCategoryId)
 
   const toggleCandidate = (candidateId: number) => {
-    setSelectedCandidateIds((current) => {
-      if (current.includes(candidateId)) {
-        return current.filter((selectedId) => selectedId !== candidateId)
-      }
-      if (current.length >= MAX_SELECTED_CANDIDATES) return current
-      return [...current, candidateId]
+    if (selectedCandidateIds.includes(candidateId)) {
+      writeCandidates(selectedCandidateIds.filter((id) => id !== candidateId))
+      return
+    }
+    if (selectedCandidateIds.length >= MAX_SELECTED_CANDIDATES) return
+    writeCandidates([...selectedCandidateIds, candidateId])
+  }
+
+  const clearCandidates = () => writeCandidates([])
+
+  const selectCategory = (nextCategoryId: number | undefined) => {
+    updateParams((params) => {
+      if (nextCategoryId !== undefined) params.set('category', String(nextCategoryId))
+      else params.delete('category')
     })
   }
 
@@ -57,21 +100,21 @@ export function ElectoralVsPage() {
             <StickySelectionBar
               selectedCandidates={selectedCandidates}
               selectedCategory={selectedCategory}
-              onClear={() => setSelectedCandidateIds([])}
+              onClear={clearCandidates}
               onToggle={toggleCandidate}
             />
 
             <CandidateVsSelector
               candidates={candidates}
               selectedCandidateIds={selectedCandidateIds}
-              onClear={() => setSelectedCandidateIds([])}
+              onClear={clearCandidates}
               onToggle={toggleCandidate}
             />
 
             <CategoryVsSelector
               categories={categories}
               selectedCategoryId={selectedCategoryId}
-              onSelectCategory={setSelectedCategoryId}
+              onSelectCategory={selectCategory}
             />
 
             {selectedCategory && selectedCandidates.length > 0 && (
