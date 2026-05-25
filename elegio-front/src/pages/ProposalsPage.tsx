@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router'
 import { useCandidates } from '../features/candidates/hooks/useCandidates'
 import { NavBar } from '../features/home/components/NavBar'
 import { ProposalCandidatePicker } from '../features/proposals/components/ProposalCandidatePicker'
@@ -20,11 +21,37 @@ function getPageItems<T>(items: T[], page: number): T[] {
 }
 
 export function ProposalsPage() {
-  const [query, setQuery] = useState('')
-  const [selectedCandidateIds, setSelectedCandidateIds] = useState<number[]>([])
-  const [categoryId, setCategoryId] = useState<number | undefined>()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [proposalPage, setProposalPage] = useState(1)
   const [searchPage, setSearchPage] = useState(1)
+
+  const query = searchParams.get('q') ?? ''
+  const selectedCandidateIds = useMemo(() => {
+    const raw = searchParams.get('candidates')
+    if (!raw) return []
+    return raw
+      .split(',')
+      .map(Number)
+      .filter((n) => Number.isFinite(n) && n > 0)
+  }, [searchParams])
+  const categoryId = useMemo(() => {
+    const raw = searchParams.get('category')
+    if (!raw) return undefined
+    const n = Number(raw)
+    return Number.isFinite(n) && n > 0 ? n : undefined
+  }, [searchParams])
+
+  const updateParams = (mutator: (params: URLSearchParams) => void) => {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev)
+        mutator(next)
+        return next
+      },
+      { replace: true },
+    )
+  }
+
   const trimmedQuery = query.trim()
   const isSearching = trimmedQuery.length > 0
   const hasSelectedFilters = selectedCandidateIds.length > 0 || categoryId !== undefined
@@ -65,29 +92,47 @@ export function ProposalsPage() {
   const hasActiveFilters = hasSelectedFilters
 
   const updateQuery = (value: string) => {
-    setQuery(value)
+    updateParams((params) => {
+      if (value) params.set('q', value)
+      else params.delete('q')
+    })
     setSearchPage(1)
   }
 
   const toggleCandidate = (candidateId: number) => {
-    setSelectedCandidateIds((current) =>
-      current.includes(candidateId)
-        ? current.filter((selectedId) => selectedId !== candidateId)
-        : [...current, candidateId],
-    )
+    const next = selectedCandidateIds.includes(candidateId)
+      ? selectedCandidateIds.filter((selectedId) => selectedId !== candidateId)
+      : [...selectedCandidateIds, candidateId]
+    updateParams((params) => {
+      if (next.length > 0) params.set('candidates', next.join(','))
+      else params.delete('candidates')
+    })
     setProposalPage(1)
     setSearchPage(1)
   }
 
   const updateCategory = (nextCategoryId: number | undefined) => {
-    setCategoryId(nextCategoryId)
+    updateParams((params) => {
+      if (nextCategoryId !== undefined) params.set('category', String(nextCategoryId))
+      else params.delete('category')
+    })
+    setProposalPage(1)
+    setSearchPage(1)
+  }
+
+  const clearCandidates = () => {
+    updateParams((params) => params.delete('candidates'))
     setProposalPage(1)
     setSearchPage(1)
   }
 
   const clearFilters = () => {
-    setSelectedCandidateIds([])
-    updateCategory(undefined)
+    updateParams((params) => {
+      params.delete('candidates')
+      params.delete('category')
+    })
+    setProposalPage(1)
+    setSearchPage(1)
   }
 
   return (
@@ -123,11 +168,7 @@ export function ProposalsPage() {
           candidates={candidates}
           selectedCandidateIds={selectedCandidateIds}
           onToggleCandidate={toggleCandidate}
-          onClearCandidates={() => {
-            setSelectedCandidateIds([])
-            setProposalPage(1)
-            setSearchPage(1)
-          }}
+          onClearCandidates={clearCandidates}
         />
 
         <ProposalCategoryFilter
