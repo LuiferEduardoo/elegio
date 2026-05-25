@@ -3,6 +3,7 @@ import { CandidateDetailHero } from '../features/candidates/components/Candidate
 import { CandidateTroubles } from '../features/candidates/components/CandidateTroubles'
 import { CategoryAveragesSection } from '../features/candidates/components/CategoryAveragesSection'
 import { useCandidate } from '../features/candidates/hooks/useCandidate'
+import { useAffinityResult } from '../features/tests/hooks/useAffinityResult'
 import { GovernmentPlansSection } from '../features/government-plans/components/GovernmentPlansSection'
 import { useGovernmentPlans } from '../features/government-plans/hooks/useGovernmentPlans'
 import { ROUTE_PATHS } from '../routes/paths'
@@ -12,6 +13,14 @@ import { Footer } from '../components/Footer'
 export function CandidateDetailPage() {
   const { id } = useParams<{ id: string }>()
   const { candidate, isLoading, error } = useCandidate(id)
+  const { affinity, status: affinityStatus } = useAffinityResult()
+
+  const userAverages =
+    affinityStatus === 'ready' && affinity
+      ? Object.fromEntries(
+          affinity.user_averages.map((category) => [category.category_id, category.average]),
+        )
+      : undefined
   const {
     plans: governmentPlans,
     isLoading: isLoadingPlans,
@@ -69,7 +78,10 @@ export function CandidateDetailPage() {
             isLoading={isLoadingPlans}
             error={governmentPlansError}
           />
-          <CategoryAveragesSection categories={candidate.category_averages} />
+          <CategoryAveragesSection
+            categories={candidate.category_averages}
+            userAverages={userAverages}
+          />
         </div>
       </main>
       <Footer />

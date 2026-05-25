@@ -223,6 +223,7 @@ export function useTestFlow() {
 
   return {
     activeTest,
+    affinity,
     answeredCount,
     canSubmitCurrentQuestion,
     currentIndex,
