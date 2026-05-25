@@ -22,7 +22,7 @@ class CategoryAverage(BaseModel):
     )
     rhetorical_weight: float | None = Field(
         default=None,
-        description="Rhetorical weight (0.0-2.0) used to compute adjusted_average; null if not set",
+        description="Rhetorical weight (0.0-5.0) used to compute adjusted_average; null if not set",
     )
     editorial_justification: str | None = Field(
         default=None,
