@@ -1,51 +1,58 @@
-"""Multilingual E5 embedder, in-process singleton for query embeddings.
+"""Gemini query embedder (gemini-embedding-001), in-process singleton.
 
-Mirrors the analysis-side embedder so query vectors live in the same space
-as the indexed chunks. E5 requires task-specific prefixes:
-    - documents/chunks  →  "passage: <text>"
-    - search queries    →  "query: <text>"
-
-The model is lazily loaded on first call (~2.2 GB download on first start,
-~1.5 GB RAM per worker). Outputs are L2-normalized so cosine == dot product.
+Embeds search queries through Google's embedding API so no local model is
+loaded into memory. Must mirror the analysis-side indexing: same model,
+``output_dimensionality`` and L2-normalization, with task_type
+``RETRIEVAL_QUERY`` for queries, so query vectors live in the same space as
+the indexed chunks.
 """
 
-from sentence_transformers import SentenceTransformer
+import math
 
-MODEL_NAME = "intfloat/multilingual-e5-large"
-EMBEDDING_DIM = 1024
+from google import genai
+from google.genai import types
+
+from app.core.config import get_settings
+
+MODEL_NAME = "gemini-embedding-001"
+EMBEDDING_DIM = 1536
+
+
+def _l2_normalize(vector: list[float]) -> list[float]:
+    norm = math.sqrt(sum(v * v for v in vector))
+    if norm == 0.0:
+        return vector
+    return [v / norm for v in vector]
 
 
 class Embedder:
-    def __init__(
-        self,
-        model_name: str = MODEL_NAME,
-        device: str | None = None,
-    ):
+    def __init__(self, model_name: str = MODEL_NAME):
         self.model_name = model_name
-        self._device = device
-        self._model: SentenceTransformer | None = None
+        self._client: genai.Client | None = None
 
     @property
-    def model(self) -> SentenceTransformer:
-        if self._model is None:
-            self._model = SentenceTransformer(self.model_name, device=self._device)
-        return self._model
+    def client(self) -> genai.Client:
+        if self._client is None:
+            self._client = genai.Client(api_key=get_settings().GEMINI_API_KEY)
+        return self._client
 
     def embed_query(self, text: str) -> list[float]:
-        embedding = self.model.encode(
-            [f"query: {text}"],
-            normalize_embeddings=True,
-            convert_to_numpy=True,
-            show_progress_bar=False,
+        response = self.client.models.embed_content(
+            model=self.model_name,
+            contents=[text],
+            config=types.EmbedContentConfig(
+                task_type="RETRIEVAL_QUERY",
+                output_dimensionality=EMBEDDING_DIM,
+            ),
         )
-        return embedding[0].tolist()
+        return _l2_normalize(response.embeddings[0].values)
 
 
 _instance: Embedder | None = None
 
 
 def get_embedder() -> Embedder:
-    """Return the process-wide Embedder singleton (lazy-loaded)."""
+    """Return the process-wide Embedder singleton."""
     global _instance
     if _instance is None:
         _instance = Embedder()

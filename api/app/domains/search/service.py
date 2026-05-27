@@ -1,7 +1,7 @@
 """Hybrid (dense + BM25) proposal search with RRF fusion.
 
 Pipeline per request:
-  1. Embed the query with multilingual-e5-large (in-process).
+  1. Embed the query with gemini-embedding-001 (Google embedding API).
   2. Run a dense search against Qdrant, filtered by category/candidate via
      payload conditions.
   3. Run BM25 against the in-memory index, applying the same filters.

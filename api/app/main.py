@@ -12,7 +12,6 @@ from app.api.v1.router import api_router
 from app.core.bm25_index import get_bm25_index
 from app.core.config import get_settings
 from app.core.database import AsyncSessionLocal
-from app.core.embedder import get_embedder
 from app.core.rate_limit import limiter
 
 settings = get_settings()
@@ -25,14 +24,6 @@ async def lifespan(app: FastAPI):
         logger.info("Skipping search pre-load; EAGER_LOAD_SEARCH_ON_STARTUP is disabled")
         yield
         return
-
-    t0 = time.perf_counter()
-    try:
-        logger.info("Loading embedding model (multilingual-e5-large)...")
-        _ = get_embedder().model
-        logger.info("Embedder ready in %.1fs", time.perf_counter() - t0)
-    except Exception:
-        logger.exception("Embedder pre-load failed; will fall back to lazy load")
 
     t1 = time.perf_counter()
     try:
