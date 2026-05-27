@@ -36,7 +36,7 @@ const STEPS: Step[] = [
     number: '05',
     title: 'Búsqueda híbrida',
     body:
-      'El buscador combina búsqueda semántica (embeddings multilingüe-e5-large sobre Qdrant) con búsqueda léxica (BM25). Los dos rankings se fusionan con Reciprocal Rank Fusion (RRF, k=60) para que un término exacto y una intención parecida pesen ambos.',
+      'El buscador combina búsqueda semántica (embeddings de gemini-embedding-001 sobre Qdrant) con búsqueda léxica (BM25). Los dos rankings se fusionan con Reciprocal Rank Fusion (RRF, k=60) para que un término exacto y una intención parecida pesen ambos.',
   },
   {
     number: '06',
@@ -67,9 +67,9 @@ const FORMULAS: Formula[] = [
   },
   {
     name: 'Embedding multilingüe',
-    expression: 'e(t) = E(t) ∈ ℝ¹⁰²⁴',
+    expression: 'e(t) = E(t) ∈ ℝ¹⁵³⁶',
     usage:
-      'Cada propuesta y cada consulta se convierten en un vector de 1024 dimensiones usando multilingual-e5-large. Los vectores capturan significado, no solo palabras, así una búsqueda por "pensión" también encuentra "jubilación".',
+      'Cada propuesta y cada consulta se convierten en un vector de 1536 dimensiones usando gemini-embedding-001. Los vectores capturan significado, no solo palabras, así una búsqueda por "pensión" también encuentra "jubilación".',
   },
   {
     name: 'Similitud coseno',
@@ -98,7 +98,11 @@ const FORMULAS: Formula[] = [
   },
 ]
 
-const PRINCIPLES: { title: string; body: string }[] = [
+const PRINCIPLES: {
+  title: string
+  body: string
+  link?: { label: string; href: string }
+}[] = [
   {
     title: 'Trazabilidad',
     body:
@@ -118,6 +122,10 @@ const PRINCIPLES: { title: string; body: string }[] = [
     title: 'Open data',
     body:
       'El código del API, el frontend y el pipeline de análisis están abiertos para inspección y crítica.',
+    link: {
+      label: 'Ver el repositorio en GitHub',
+      href: 'https://github.com/LuiferEduardoo/elegio',
+    },
   },
 ]
 
@@ -210,6 +218,16 @@ export function MethodologyPage() {
                   {principle.title}
                 </h3>
                 <p className="mt-3 text-sm leading-7 text-muted">{principle.body}</p>
+                {principle.link && (
+                  <a
+                    href={principle.link.href}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-clay underline-offset-4 transition hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-clay focus-visible:ring-offset-2"
+                  >
+                    {principle.link.label} ↗
+                  </a>
+                )}
               </li>
             ))}
           </ul>
