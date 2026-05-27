@@ -2,7 +2,7 @@
 
 Offline Python tool that uses **Google Gemini** to classify (rate) the political proposals stored by the [Elegio API](../api) on a `-1.0` / `+1.0` descriptive axis. For every proposal that does not yet have a `Posture`, the tool builds a category-specific prompt, asks Gemini for a JSON-structured rating, and writes the result back into the same MySQL database the API uses. It is a **batch script**, not a service: there is no HTTP server and no public API surface.
 
-This service also owns the **chunking + embedding pipelines** that feed the API's hybrid search endpoint: it splits proposals into paragraph-aware chunks, embeds them with `intfloat/multilingual-e5-large`, and upserts the vectors into a Qdrant collection that the API queries at search time.
+This service also owns the **chunking + embedding pipelines** that feed the API's hybrid search endpoint: it splits proposals into paragraph-aware chunks, embeds them with `gemini-embedding-001` (Gemini API), and upserts the vectors into a Qdrant collection that the API queries at search time.
 
 ---
 
@@ -42,13 +42,13 @@ Human reviewers can later add their own postures (with `coder_type = "human"`) f
 ## 🚀 Tech stack
 
 - **Python** — sync runtime (no event loop, no FastAPI)
-- **google-genai** — official Gemini SDK; configured to return JSON matching a Pydantic schema
+- **google-genai** — official Gemini SDK; used both for the JSON-schema classifier and for `gemini-embedding-001` embeddings
 - **SQLAlchemy 2.0 Core (sync)** — Table definitions and connection management
 - **PyMySQL** + **cryptography** — sync MySQL driver
 - **Pydantic v2** — schemas for the LLM response and the in-memory proposal/category models
 - **python-dotenv** — loads `.env` into process environment
 - **pandas** — available for ad-hoc data exploration scripts (not used by `rate_batch` itself)
-- **sentence-transformers** + **intfloat/multilingual-e5-large** — 1024-dim multilingual embeddings used by the chunking/embedding pipeline
+- **gemini-embedding-001** (via **google-genai**) — 1536-dim multilingual embeddings used by the chunking/embedding pipeline; no local model is loaded
 - **qdrant-client** — pushes the embeddings into a local Qdrant instance (the same one the API queries)
 
 > Unlike the [API](../api), this project uses **sync** SQLAlchemy. There is no async loop and no ORM session; data access goes through SQLAlchemy Core (`Table`, `select`, `insert`).
@@ -65,7 +65,7 @@ analysis/
 │   ├── core/
 │   │   ├── database.py                 # Sync engine + Core Tables (categories, proposals, postures, proposal_chunks)
 │   │   ├── gemini_client.py            # GeminiClassifier wrapper around google-genai
-│   │   ├── embedder.py                 # Embedder wrapper around sentence-transformers (multilingual-e5-large)
+│   │   ├── embedder.py                 # Embedder wrapper around google-genai (gemini-embedding-001)
 │   │   └── qdrant_client.py            # Qdrant client + ensure_collection() helper
 │   └── domains/
 │       ├── posture_proposal/
@@ -83,6 +83,7 @@ analysis/
 │   ├── rate_batch.py                   # Entry point: classify every pending proposal
 │   ├── chunk_proposals.py              # Entry point: split proposals into proposal_chunks rows
 │   └── embed_chunks.py                 # Entry point: embed chunks and upsert them into Qdrant
+├── reindex.py                          # Drop + rebuild the Qdrant collection (re-embed all chunks)
 ├── main.py                             # Smoke test for the Gemini client
 ├── requirements.txt
 ├── .env.example
@@ -150,14 +151,14 @@ The prompt asks the model to keep the score close to `0` with `low` confidence w
 ```
 ┌──────────────────┐   ┌──────────────────┐   ┌──────────────────┐
 │ proposal_chunks  │──▶│ Embedder.embed_  │──▶│ Qdrant           │
-│ JOIN proposals   │   │ passages (1024d) │   │ proposal_chunks  │
+│ JOIN proposals   │   │ passages (1536d) │   │ proposal_chunks  │
 └──────────────────┘   └──────────────────┘   └──────────────────┘
 ```
 
 1. **Diff against Qdrant.** [`scripts/embed_chunks.py`](scripts/embed_chunks.py) lists every non-deleted chunk id in MySQL, asks Qdrant which of those ids already exist as points, and processes only the difference. The Qdrant point id is the MySQL chunk id, so the operation is **naturally idempotent** — rerunning the script never re-embeds a chunk that is already stored.
 2. **Fetch with context.** [`fetch_chunks`](app/domains/proposal_chunk/embedding.py) joins `proposal_chunks` with `proposals` so each Qdrant point's payload carries `proposal_id`, `chunk_index`, `total_chunks`, `content`, `category_id`, and `candidate_id`. The last two fields are what enables the API's filtered search (`?category_id=` / `?candidate_id=`).
-3. **Embed in batches.** The [`Embedder`](app/core/embedder.py) wraps `intfloat/multilingual-e5-large` (1024-dim, L2-normalized). The E5 family requires task-specific prefixes — `"passage: "` for documents, `"query: "` for searches — and the wrapper adds them automatically. Documents and queries must use the **same** model, otherwise dot-product similarity is meaningless. Batch size is `64`.
-4. **Upsert.** Points are upserted into the `proposal_chunks` Qdrant collection (`Distance.COSINE`, 1024-dim). The collection is created on demand by [`ensure_collection`](app/core/qdrant_client.py).
+3. **Embed in batches.** The [`Embedder`](app/core/embedder.py) calls `gemini-embedding-001` through the Gemini API (1536-dim, L2-normalized). It uses task-specific types — `RETRIEVAL_DOCUMENT` for chunks, `RETRIEVAL_QUERY` for searches. Documents and queries must use the **same** model, otherwise dot-product similarity is meaningless. Batch size is `100`.
+4. **Upsert.** Points are upserted into the `proposal_chunks` Qdrant collection (`Distance.COSINE`, 1536-dim). The collection is created on demand by [`ensure_collection`](app/core/qdrant_client.py).
 
 ### End-to-end flow
 
@@ -219,7 +220,7 @@ It exposes:
 - `6333` — REST API and dashboard ([http://localhost:6333/dashboard](http://localhost:6333/dashboard))
 - `6334` — gRPC port
 
-The `proposal_chunks` collection is created on demand by [`ensure_collection`](app/core/qdrant_client.py) the first time `embed_chunks.py` runs (`Distance.COSINE`, 1024-dim).
+The `proposal_chunks` collection is created on demand by [`ensure_collection`](app/core/qdrant_client.py) the first time `embed_chunks.py` runs (`Distance.COSINE`, 1536-dim).
 
 ### 4. Smoke-test the Gemini client (optional)
 
@@ -316,12 +317,20 @@ The script:
 
 1. Calls `ensure_collection` to create the `proposal_chunks` Qdrant collection on first run.
 2. Lists every non-deleted chunk id in MySQL, asks Qdrant which ids are already present, and prints the totals (`Total chunks in MySQL`, `Already in Qdrant`, `Pending`).
-3. Embeds and upserts the pending chunks in batches of `64`, printing `[batch/total] · upserted <n> chunks` per batch. A failed batch is reported but does not stop the loop.
+3. Embeds and upserts the pending chunks in batches, printing `[batch/total] · upserted <n> chunks` per batch. A failed batch is reported but does not stop the loop.
 4. At the end, prints `Total upserted: <N>` plus a summary of any failed batches.
 
 Idempotent: the Qdrant point id equals the MySQL chunk id, so re-running the script never re-embeds a chunk that is already stored.
 
 > **Restart the API after embedding.** The API's BM25 index is built at startup from `proposal_chunks` and has no auto-invalidation. After a successful `embed_chunks` run, restart the API (or call `BM25Index.refresh(db)` programmatically) so the new chunks are searchable lexically too. See [api/README.md](../api/README.md) for details.
+
+### Rebuilding the collection — `reindex.py`
+
+```bash
+GEMINI_API_KEY=... QDRANT_URL=... DATABASE_URL=... python reindex.py
+```
+
+Unlike `embed_chunks.py` (incremental, idempotent), [`reindex.py`](reindex.py) **drops** the `proposal_chunks` collection, recreates it at the current `EMBEDDING_DIM`, and re-embeds every non-deleted chunk. Run it after changing the embedding model or its output dimensionality — e.g. the migration from `multilingual-e5-large` (1024-dim) to `gemini-embedding-001` (1536-dim) — because the old vectors are incompatible with the new space. Restart the API afterwards (same BM25 caveat as above).
 
 ---
 
@@ -476,6 +485,7 @@ docker compose -f docker-compose.dev.yml down
 # Chunking + embedding pipelines
 python -m scripts.chunk_proposals
 python -m scripts.embed_chunks
+python reindex.py            # drop + rebuild the Qdrant collection (after a model/dim change)
 ```
 
 ---

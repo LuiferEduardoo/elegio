@@ -96,7 +96,7 @@ Steps 1, 3, and 4 are public. Steps 2, 5, and 6 require the JWT issued in step 2
 - **MySQL 8** via `aiomysql` (async) and `pymysql` (sync, used by Alembic)
 - **PyJWT** `2.10` — JWT issuance and validation (HS256)
 - **slowapi** `0.1.9` — IP-based rate limiting
-- **sentence-transformers** `3.3.1` — multilingual E5 embeddings (`intfloat/multilingual-e5-large`, 1024-dim) for the hybrid search endpoint
+- **google-genai** `1.16.1` — Gemini API client used to embed search queries with `gemini-embedding-001` (1536-dim); no local embedding model is loaded
 - **qdrant-client** `1.13.2` — Qdrant client used to query the `proposal_chunks` vector collection
 - **rank-bm25** `0.2.2` — in-memory BM25 lexical index fused with the dense results via Reciprocal Rank Fusion
 
@@ -117,7 +117,7 @@ api/
 │   │   ├── database.py       # Async engine, Base, TimestampMixin, get_db()
 │   │   ├── security.py       # JWT helpers + get_token_payload dependency
 │   │   ├── rate_limit.py     # slowapi Limiter + PUBLIC/PRIVATE constants
-│   │   ├── embedder.py       # multilingual-e5-large SentenceTransformer singleton
+│   │   ├── embedder.py       # gemini-embedding-001 query embedder (Gemini API client)
 │   │   ├── qdrant_client.py  # Qdrant client + collection metadata
 │   │   └── bm25_index.py     # In-memory BM25 index over proposal_chunks
 │   └── domains/              # One folder per domain
@@ -224,11 +224,11 @@ Useful URLs once the server is up:
 - `GET /docs` — interactive Swagger UI
 - `GET /redoc` — ReDoc UI
 
-> **Search warm-up.** By default, local development skips the expensive search pre-load so the API starts quickly. Set `EAGER_LOAD_SEARCH_ON_STARTUP=true` to make the FastAPI [`lifespan`](app/main.py) hook eagerly load the multilingual-e5-large SentenceTransformer (~1.5 GB RAM per worker; the first start downloads the weights) and build the BM25 index from `proposal_chunks`. If either pre-load fails, the API still starts and falls back to lazy loading on the first search request.
+> **Search warm-up.** Query embeddings are computed through the Gemini API (`gemini-embedding-001`), so no large model is loaded into memory — the previous in-process `multilingual-e5-large` (~1.5 GB RAM per worker) is gone. By default, local development still skips the BM25 pre-load so the API starts quickly. Set `EAGER_LOAD_SEARCH_ON_STARTUP=true` to make the FastAPI [`lifespan`](app/main.py) hook build the BM25 index from `proposal_chunks` at startup. If the pre-load fails, the API still starts and falls back to lazy loading on the first search request.
 >
 > Operational notes:
-> - With `uvicorn --reload` both pre-loads run on every reload — expect a slow loop during development.
-> - With multiple workers each worker holds its own copy of the model and BM25 index.
+> - With `uvicorn --reload` the BM25 pre-load runs on every reload — expect a slow loop during development.
+> - With multiple workers each worker holds its own copy of the BM25 index.
 > - BM25 has no auto-invalidation. After new chunks are embedded (see [analysis/README.md](../analysis/README.md)), restart the API — or call `BM25Index.refresh(db)` programmatically — for them to be searchable lexically. Qdrant is queried directly so dense results pick up new chunks immediately.
 
 ---
@@ -249,7 +249,8 @@ Loaded from `api/.env` via [`Settings`](app/core/config.py) (pydantic-settings).
 | `JWT_EXPIRES_MINUTES` |    no    | `1440` (24 h)            | Token lifetime in minutes                                     |
 | `QDRANT_URL`          |    no    | `http://localhost:6333`  | URL of the Qdrant instance backing the `/search/proposals` endpoint |
 | `QDRANT_API_KEY`      |    no    | `""` (unset)             | Optional Qdrant API key. Leave empty for the local docker-compose instance |
-| `EAGER_LOAD_SEARCH_ON_STARTUP` | no | `False` | Pre-loads the embedding model and BM25 index during FastAPI startup when enabled |
+| `GEMINI_API_KEY`      |    no    | `""` (unset)             | Google AI Studio key used to embed search queries with `gemini-embedding-001`. Required for `/search/proposals`; the same key the `analysis` service uses |
+| `EAGER_LOAD_SEARCH_ON_STARTUP` | no | `False` | Pre-builds the BM25 index during FastAPI startup when enabled (query embeddings are remote, so there is no model to pre-load) |
 | `CORS_ORIGINS`        |    no    | `http://localhost:5173,http://127.0.0.1:5173` | Comma-separated list of exact origins allowed by the CORS middleware. Parsed into a list via `Settings.cors_origin_list`. |
 | `CORS_ORIGIN_REGEX`   |    no    | `https?://(localhost\|127\.0\.0\.1):\d+` | Regex matched against the request `Origin` header. Lets dev ports through without listing each one in `CORS_ORIGINS`. |
 
@@ -1179,7 +1180,7 @@ Errors:
 
 [routes.py](app/domains/search/routes.py) · [service.py](app/domains/search/service.py) · [schemas.py](app/domains/search/schemas.py)
 
-Hybrid full-text search across all proposal chunks. The endpoint runs a dense search against Qdrant (cosine similarity over multilingual-e5-large embeddings) and a BM25 lexical search against the in-memory index in parallel, then fuses the two ranked lists with Reciprocal Rank Fusion (`k = 60`). Results are collapsed to one entry per proposal (best-ranked chunk wins) and hydrated from MySQL with the full `candidate`, `category`, `taggings`, and `sources` relations. Soft-deleted proposals are filtered out during hydration.
+Hybrid full-text search across all proposal chunks. The query is embedded with `gemini-embedding-001` (Gemini API). The endpoint runs a dense search against Qdrant (cosine similarity over the `gemini-embedding-001` embeddings) and a BM25 lexical search against the in-memory index in parallel, then fuses the two ranked lists with Reciprocal Rank Fusion (`k = 60`). Results are collapsed to one entry per proposal (best-ranked chunk wins) and hydrated from MySQL with the full `candidate`, `category`, `taggings`, and `sources` relations. Soft-deleted proposals are filtered out during hydration.
 
 > **Prerequisite.** The Qdrant collection (`proposal_chunks`) and the `proposal_chunks` MySQL rows must already be populated by the [analysis](../analysis) service. With an empty collection and an empty BM25 index the endpoint returns `{ "total": 0, "items": [] }`.
 
@@ -1310,6 +1311,24 @@ uvicorn app.main:app --reload
 # Tests
 pytest
 ```
+
+---
+
+## 🐳 Docker & deployment
+
+[Dockerfile](Dockerfile) is a multi-stage build (deps compiled in a builder venv, copied into a slim runtime) that runs as a non-root `app` user and exposes port `8000`. Its `ENTRYPOINT` is [docker-entrypoint.sh](docker-entrypoint.sh), which runs `alembic upgrade head` (retrying while the DB comes up) **before** starting uvicorn — so migrations are applied automatically on container start.
+
+```bash
+docker build -t elegio-api ./api
+docker run -p 8000:8000 --env-file api/.env elegio-api
+```
+
+[.github/workflows/build-api-image.yml](../.github/workflows/build-api-image.yml) builds and publishes the image on every push to `main` that touches `api/**` (or via manual `workflow_dispatch`):
+
+1. Builds from `./api` and pushes to `ghcr.io/<owner>/elegio-api`, tagged `latest` and `sha-<short>`, using GitHub Actions layer cache.
+2. Deploys over SSH: logs in to GHCR on the server, then `docker compose pull api && docker compose up -d api`.
+
+Required repository secrets: `DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_SSH_KEY`, `DEPLOY_PATH` (the directory holding the server's `docker-compose.yml`). `GITHUB_TOKEN` is provided automatically. The server's compose file must supply the runtime env (`DATABASE_URL`, `GEMINI_API_KEY`, `QDRANT_URL`, …).
 
 ---
 

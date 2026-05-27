@@ -35,8 +35,8 @@ elegio/
 - **TypeScript** - Type-safe development
 
 ### AI
-- **Gemini API** - Proposal analysis and insights
-- **sentence-transformers** (`intfloat/multilingual-e5-large`) - 1024-dim multilingual embeddings for proposal chunks
+- **Gemini API** - Proposal analysis, plus `gemini-embedding-001` for proposal/query embeddings
+- **gemini-embedding-001** - 1536-dim multilingual embeddings (via the Gemini API, no local model) for proposal chunks and search queries
 - **Qdrant** - Vector database (cosine similarity) for semantic search over proposal chunks
 - **rank-bm25** - In-memory lexical index fused with the dense results via Reciprocal Rank Fusion
 
@@ -64,7 +64,10 @@ Configure environment variables in `api/.env`. If you use the bundled Docker Com
 DATABASE_URL=mysql+aiomysql://elegio_user:elegio_password@localhost:3306/elegio
 DATABASE_URL_SYNC=mysql+pymysql://elegio_user:elegio_password@localhost:3306/elegio
 JWT_SECRET_KEY=change-me-in-development
+GEMINI_API_KEY=your-gemini-api-key-here
 ```
+
+`GEMINI_API_KEY` is required by the `/search/proposals` endpoint, which embeds the query with `gemini-embedding-001`.
 
 Start the local database:
 
