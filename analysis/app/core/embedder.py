@@ -1,57 +1,63 @@
-"""Multilingual E5 embedder.
+"""Gemini embedder (gemini-embedding-001).
 
-The E5 family requires task-specific prefixes:
-    - documents/chunks  →  "passage: <text>"
-    - search queries    →  "query: <text>"
+Embeds chunks and queries through Google's embedding API, so no local model
+is loaded into memory. Passages use task_type ``RETRIEVAL_DOCUMENT`` and
+queries ``RETRIEVAL_QUERY`` so both live in the same retrieval space.
 
-Outputs are L2-normalized so cosine similarity equals dot product (the metric
-Qdrant should be configured with — `Distance.COSINE`).
+Outputs are L2-normalized (required for ``output_dimensionality`` < 3072) so
+cosine similarity equals dot product — the metric Qdrant is configured with
+(``Distance.COSINE``).
 """
 
-from sentence_transformers import SentenceTransformer
+import math
 
-MODEL_NAME = "intfloat/multilingual-e5-large"
-EMBEDDING_DIM = 1024
+from google import genai
+from google.genai import types
+
+from app.config import settings
+
+MODEL_NAME = "gemini-embedding-001"
+EMBEDDING_DIM = 1536
+
+
+def _l2_normalize(vector: list[float]) -> list[float]:
+    norm = math.sqrt(sum(v * v for v in vector))
+    if norm == 0.0:
+        return vector
+    return [v / norm for v in vector]
 
 
 class Embedder:
     def __init__(
         self,
         model_name: str = MODEL_NAME,
-        device: str | None = None,
-        batch_size: int = 16,
+        batch_size: int = 100,
     ):
         self.model_name = model_name
-        self._device = device
         self.batch_size = batch_size
-        self._model: SentenceTransformer | None = None
+        self._client = genai.Client(api_key=settings.gemini_api_key)
 
-    @property
-    def model(self) -> SentenceTransformer:
-        if self._model is None:
-            self._model = SentenceTransformer(self.model_name, device=self._device)
-        return self._model
+    def _embed(self, texts: list[str], task_type: str) -> list[list[float]]:
+        out: list[list[float]] = []
+        for start in range(0, len(texts), self.batch_size):
+            batch = texts[start : start + self.batch_size]
+            response = self._client.models.embed_content(
+                model=self.model_name,
+                contents=batch,
+                config=types.EmbedContentConfig(
+                    task_type=task_type,
+                    output_dimensionality=EMBEDDING_DIM,
+                ),
+            )
+            out.extend(_l2_normalize(e.values) for e in response.embeddings)
+        return out
 
     def embed_passages(self, texts: list[str]) -> list[list[float]]:
-        """Embed documents/chunks for storage. Adds the ``passage:`` prefix."""
+        """Embed documents/chunks for storage (RETRIEVAL_DOCUMENT)."""
         if not texts:
             return []
-        prefixed = [f"passage: {t}" for t in texts]
-        embeddings = self.model.encode(
-            prefixed,
-            batch_size=self.batch_size,
-            normalize_embeddings=True,
-            convert_to_numpy=True,
-            show_progress_bar=False,
-        )
-        return embeddings.tolist()
+        return self._embed(texts, "RETRIEVAL_DOCUMENT")
 
     def embed_query(self, text: str) -> list[float]:
-        """Embed a single search query. Adds the ``query:`` prefix."""
-        embedding = self.model.encode(
-            [f"query: {text}"],
-            normalize_embeddings=True,
-            convert_to_numpy=True,
-            show_progress_bar=False,
-        )
-        return embedding[0].tolist()
+        """Embed a single search query (RETRIEVAL_QUERY)."""
+        return self._embed([text], "RETRIEVAL_QUERY")[0]

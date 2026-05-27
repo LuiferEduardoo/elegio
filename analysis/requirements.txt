@@ -5,5 +5,4 @@ pandas
 sqlalchemy
 pymysql
 cryptography
-sentence-transformers
 qdrant-client
