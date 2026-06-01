@@ -14,18 +14,25 @@ import { getCategoryOptions } from '../features/electoral-vs/utils'
 import { NavBar } from '../features/home/components/NavBar'
 
 export function ElectoralVsPage() {
-  const { candidates, isLoading, error } = useCandidates()
+  const { candidates: allCandidates, isLoading, error } = useCandidates()
+  const candidates = useMemo(
+    () => allCandidates.filter((c) => c.is_in_the_second_round),
+    [allCandidates],
+  )
   const [searchParams, setSearchParams] = useSearchParams()
 
   const selectedCandidateIds = useMemo(() => {
     const raw = searchParams.get('candidates')
-    if (!raw) return []
+    if (raw === null) {
+      // No explicit selection in the URL — default to both second-round candidates.
+      return candidates.map((c) => c.id).slice(0, MAX_SELECTED_CANDIDATES)
+    }
     return raw
       .split(',')
       .map(Number)
       .filter((n) => Number.isFinite(n) && n > 0)
       .slice(0, MAX_SELECTED_CANDIDATES)
-  }, [searchParams])
+  }, [searchParams, candidates])
   const selectedCategoryId = useMemo(() => {
     const raw = searchParams.get('category')
     if (!raw) return undefined
