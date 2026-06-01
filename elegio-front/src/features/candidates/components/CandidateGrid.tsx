@@ -8,6 +8,10 @@ type CandidateGridProps = {
 }
 
 export function CandidateGrid({ candidates, error, isLoading }: CandidateGridProps) {
+  const secondRoundCandidates = candidates.filter(
+    (candidate) => candidate.is_in_the_second_round,
+  )
+
   return (
     <section className="mx-auto max-w-7xl px-6 py-14 sm:px-10 lg:px-16">
       <div className="mb-8">
@@ -37,7 +41,7 @@ export function CandidateGrid({ candidates, error, isLoading }: CandidateGridPro
       {error && <p className="rounded-3xl bg-clay p-8 font-bold text-white">{error}</p>}
 
       <div className="grid gap-8 py-2 md:grid-cols-2 xl:grid-cols-3">
-        {candidates.map((candidate) => (
+        {secondRoundCandidates.map((candidate) => (
           <CandidateCard candidate={candidate} key={candidate.id} />
         ))}
       </div>

@@ -23,6 +23,7 @@ export type Candidate = {
   photo_vice_president: string
   troubles_questions: string
   political_spectrum: string
+  is_in_the_second_round: boolean
   created_at: string
   category_averages: CategoryAverage[]
 }
