@@ -1,6 +1,6 @@
 import type { Proposal } from '../proposals/types'
 
-export const MAX_SELECTED_CANDIDATES = 3
+export const MAX_SELECTED_CANDIDATES = 2
 
 export type CategoryOption = {
   id: number

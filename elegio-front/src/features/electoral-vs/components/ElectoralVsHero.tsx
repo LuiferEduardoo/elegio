@@ -1,4 +1,4 @@
-import type { CategoryOption } from '../types'
+import { MAX_SELECTED_CANDIDATES, type CategoryOption } from '../types'
 
 type ElectoralVsHeroProps = {
   selectedCategory: CategoryOption | undefined
@@ -27,7 +27,7 @@ export function ElectoralVsHero({ selectedCategory, selectedCount }: ElectoralVs
             Estado de comparación
           </p>
           <div className="mt-4 grid grid-cols-2 gap-3">
-            <StatusPill label="Candidatos" value={`${selectedCount}/3`} />
+            <StatusPill label="Candidatos" value={`${selectedCount}/${MAX_SELECTED_CANDIDATES}`} />
             <StatusPill label="Categoría" value={selectedCategory ? 'Lista' : 'Pendiente'} />
           </div>
         </div>
