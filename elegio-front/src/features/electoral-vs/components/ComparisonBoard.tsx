@@ -27,6 +27,13 @@ export function ComparisonBoard({
     [proposalsByCandidate, selectedCandidates],
   )
 
+  const columnsClass =
+    selectedCandidates.length >= 3
+      ? 'lg:grid-cols-3'
+      : selectedCandidates.length === 2
+        ? 'lg:grid-cols-2'
+        : 'lg:grid-cols-1'
+
   if (!shouldShow) {
     return (
       <section className="mt-8 rounded-[2rem] border border-dashed border-coffee/20 bg-white/60 p-8 text-center">
@@ -57,7 +64,7 @@ export function ComparisonBoard({
       </div>
 
       {isLoading && (
-        <div className="mt-6 grid gap-4 lg:grid-cols-3">
+        <div className={`mt-6 grid gap-4 ${columnsClass}`}>
           {selectedCandidates.map((candidate) => (
             <div key={candidate.id} className="h-64 animate-pulse rounded-[2rem] bg-coffee/5" />
           ))}
@@ -70,7 +77,7 @@ export function ComparisonBoard({
         <>
           <CoverageSummary metrics={coverageMetrics} />
 
-          <div className="mt-6 grid gap-4 lg:grid-cols-3">
+          <div className={`mt-6 grid gap-4 ${columnsClass}`}>
             {coverageMetrics.map((metric) => (
               <CandidateProposalColumn
                 candidate={metric.candidate}
