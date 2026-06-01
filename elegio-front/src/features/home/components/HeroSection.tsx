@@ -4,12 +4,12 @@ type HeroSectionProps = {
   candidateCount: number
 }
 
-const FIRST_ROUND_DATE = new Date('2026-05-31T08:00:00-05:00')
+const SECOND_ROUND_DATE = new Date('2026-06-21T08:00:00-05:00')
 
 type TimeLeft = { days: number; hours: number; minutes: number; seconds: number }
 
 function calculateTimeLeft(): TimeLeft | null {
-  const diff = FIRST_ROUND_DATE.getTime() - Date.now()
+  const diff = SECOND_ROUND_DATE.getTime() - Date.now()
   if (diff <= 0) return null
   return {
     days: Math.floor(diff / (1000 * 60 * 60 * 24)),
@@ -34,7 +34,7 @@ export function HeroSection({ candidateCount }: HeroSectionProps) {
       <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[1.1fr_.9fr] lg:items-center">
         <div className="max-w-3xl">
           <p className="mb-5 inline-flex rounded-full border border-coffee/10 bg-white px-4 py-2 text-sm font-semibold text-coffee shadow-sm shadow-coffee/5">
-            Elecciones presidenciales Colombia 2026
+            Segunda vuelta presidencial · Colombia 2026
           </p>
           <h1 className="font-display text-5xl leading-[.95] tracking-[-0.05em] text-ink sm:text-7xl">
             Elegí con evidencia, no con ruido.
@@ -51,7 +51,7 @@ export function HeroSection({ candidateCount }: HeroSectionProps) {
             <p className="text-sm font-black uppercase tracking-[0.35em] text-jade">Mapa electoral</p>
             <strong className="mt-4 block text-6xl font-black text-coffee">{candidateCount || '—'}</strong>
             <p className="mt-3 text-balance text-lg text-muted">
-              candidaturas listas para explorar con sus tendencias por categoría.
+              candidaturas en segunda vuelta para comparar con sus tendencias por categoría.
             </p>
           </div>
           <div className="rounded-[2rem] border border-coffee/10 bg-white/90 p-6 shadow-2xl shadow-coffee/10 backdrop-blur">
@@ -65,14 +65,14 @@ export function HeroSection({ candidateCount }: HeroSectionProps) {
                   <TimeBlock value={timeLeft.seconds} label="Seg" />
                 </div>
                 <p className="mt-4 text-balance text-base text-muted">
-                  Para la primera vuelta.
+                  Para la segunda vuelta.
                 </p>
               </>
             ) : (
               <>
                 <p className="text-sm font-black uppercase tracking-[0.35em] text-clay">Hoy es el día</p>
                 <p className="mt-4 font-display text-2xl leading-tight tracking-[-0.02em] text-ink">
-                  Hoy es la primera vuelta, recuerda que las urnas cierran a las 4 p.m.
+                  Hoy es la segunda vuelta, recuerda que las urnas cierran a las 4 p.m.
                 </p>
               </>
             )}

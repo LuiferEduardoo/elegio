@@ -22,14 +22,14 @@ export function CandidateGrid({ candidates, error, isLoading }: CandidateGridPro
               El tarjetón, explicado.
             </h2>
           </div>
-          <a
+          {/* <a
             href="https://wapp.registraduria.gov.co/electoral/2026/presidente-de-la-republica/IMG/pdf/tarjeta-electoral_presidente-2026.pdf"
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex w-fit items-center justify-center rounded-full bg-ink px-5 py-2.5 text-sm font-bold text-white transition hover:bg-clay focus:outline-none focus-visible:ring-2 focus-visible:ring-clay focus-visible:ring-offset-2"
           >
             Ver tarjetón electoral
-          </a>
+          </a> */}
         </div>
         <p className="mt-4 max-w-xl text-sm leading-6 text-muted">
           Cada tarjeta resume fórmula presidencial, espectro político y categorías
