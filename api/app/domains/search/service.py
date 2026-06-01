@@ -15,7 +15,7 @@ Pipeline per request:
 from collections import defaultdict
 from collections.abc import Iterable
 
-from qdrant_client.models import FieldCondition, Filter, MatchValue
+from qdrant_client.models import FieldCondition, Filter, MatchAny, MatchValue
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -23,6 +23,7 @@ from sqlalchemy.orm import selectinload
 from app.core.bm25_index import BM25Hit, get_bm25_index
 from app.core.embedder import get_embedder
 from app.core.qdrant_client import COLLECTION_NAME, get_qdrant_client
+from app.domains.candidate.models import Candidate
 from app.domains.proposal.models import Proposal
 from app.domains.proposal.schemas import (
     CandidateInProposal,
@@ -35,21 +36,37 @@ from app.domains.search.schemas import SearchHit, SearchResponse
 RRF_K = 60
 
 
+class InvalidCandidateForSearchError(Exception):
+    """Raised when a search request asks for a candidate not in the second round."""
+
+
 def _build_qdrant_filter(
-    category_id: int | None, candidate_id: int | None
+    category_id: int | None, allowed_candidate_ids: list[int]
 ) -> Filter | None:
     conditions: list[FieldCondition] = []
     if category_id is not None:
         conditions.append(
             FieldCondition(key="category_id", match=MatchValue(value=category_id))
         )
-    if candidate_id is not None:
+    if allowed_candidate_ids:
         conditions.append(
-            FieldCondition(key="candidate_id", match=MatchValue(value=candidate_id))
+            FieldCondition(
+                key="candidate_id", match=MatchAny(any=allowed_candidate_ids)
+            )
         )
     if not conditions:
         return None
     return Filter(must=conditions)
+
+
+async def _second_round_candidate_ids(db: AsyncSession) -> set[int]:
+    rows = await db.execute(
+        select(Candidate.id).where(
+            Candidate.is_in_the_second_round.is_(True),
+            Candidate.deleted_at.is_(None),
+        )
+    )
+    return {row[0] for row in rows.all()}
 
 
 def _collapse_to_proposals(
@@ -83,11 +100,23 @@ async def search_proposals(
 ) -> SearchResponse:
     overshoot = max(20, limit * 3)
 
+    # Restrict the searchable corpus to candidates currently in the second round.
+    second_round_ids = await _second_round_candidate_ids(db)
+    if candidate_id is not None and candidate_id not in second_round_ids:
+        raise InvalidCandidateForSearchError(
+            f"Candidate {candidate_id} is not in the second round"
+        )
+    allowed_candidate_ids = (
+        [candidate_id] if candidate_id is not None else sorted(second_round_ids)
+    )
+    if not allowed_candidate_ids:
+        return SearchResponse(query=query, total=0, items=[])
+
     # --- Semantic (Qdrant) ---
     embedder = get_embedder()
     qdrant = get_qdrant_client()
     query_vec = embedder.embed_query(query)
-    qdrant_filter = _build_qdrant_filter(category_id, candidate_id)
+    qdrant_filter = _build_qdrant_filter(category_id, allowed_candidate_ids)
 
     sem_points = qdrant.search(
         collection_name=COLLECTION_NAME,
@@ -110,7 +139,7 @@ async def search_proposals(
     # --- Lexical (BM25) ---
     bm25 = get_bm25_index()
     lex_hits: list[BM25Hit] = await bm25.search(
-        db, query, category_id, candidate_id, overshoot
+        db, query, category_id, set(allowed_candidate_ids), overshoot
     )
     lex_items = [(h.proposal_id, h.score, h.content) for h in lex_hits]
     lex_proposals = _collapse_to_proposals(lex_items)

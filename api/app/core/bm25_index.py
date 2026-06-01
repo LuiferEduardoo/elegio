@@ -95,7 +95,7 @@ class BM25Index:
         db: AsyncSession,
         query: str,
         category_id: int | None,
-        candidate_id: int | None,
+        allowed_candidate_ids: set[int] | None,
         limit: int,
     ) -> list[BM25Hit]:
         await self.ensure_loaded(db)
@@ -113,7 +113,7 @@ class BM25Index:
                 continue
             if category_id is not None and meta.category_id != category_id:
                 continue
-            if candidate_id is not None and meta.candidate_id != candidate_id:
+            if allowed_candidate_ids is not None and meta.candidate_id not in allowed_candidate_ids:
                 continue
             hits.append(
                 BM25Hit(

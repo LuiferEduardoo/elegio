@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -19,4 +19,7 @@ async def search_proposals(
     limit: int = Query(10, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
 ) -> SearchResponse:
-    return await service.search_proposals(db, q, category_id, candidate_id, limit)
+    try:
+        return await service.search_proposals(db, q, category_id, candidate_id, limit)
+    except service.InvalidCandidateForSearchError as e:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e))
