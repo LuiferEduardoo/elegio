@@ -1,4 +1,4 @@
-from sqlalchemy import String, Text
+from sqlalchemy import Boolean, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base, TimestampMixin
@@ -16,3 +16,6 @@ class Candidate(Base, TimestampMixin):
     photo_vice_president: Mapped[str | None] = mapped_column(String(500))
     troubles_questions: Mapped[str | None] = mapped_column(Text)
     political_spectrum: Mapped[str | None] = mapped_column(String(50))
+    is_in_the_second_round: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default="0"
+    )

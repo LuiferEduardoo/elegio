@@ -45,6 +45,7 @@ class CandidateRead(BaseModel):
     photo_vice_president: str | None
     troubles_questions: str | None
     political_spectrum: str | None
+    is_in_the_second_round: bool
     created_at: datetime
     category_averages: list[CategoryAverage] = []
 
