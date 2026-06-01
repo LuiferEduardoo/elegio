@@ -56,7 +56,11 @@ export function ProposalsPage() {
   const isSearching = trimmedQuery.length > 0
   const hasSelectedFilters = selectedCandidateIds.length > 0 || categoryId !== undefined
 
-  const { candidates } = useCandidates()
+  const { candidates: allCandidates } = useCandidates()
+  const candidates = useMemo(
+    () => allCandidates.filter((c) => c.is_in_the_second_round),
+    [allCandidates],
+  )
   const {
     proposals,
     total: proposalsTotal,
