@@ -349,6 +349,20 @@ End-to-end pipeline per video listed in [`scripts/videos.yaml`](scripts/videos.e
 
 System prerequisites: **ffmpeg** on `$PATH`. A CUDA GPU dramatically speeds up pyannote (CPU runs at roughly 10× realtime).
 
+### Extracting news articles — `scripts/extract_news.py`
+
+```bash
+python -m scripts.extract_news
+```
+
+End-to-end pipeline per article listed in [`scripts/news.yaml`](scripts/news.example.yaml) (copy the example to `scripts/news.yaml` — it is gitignored):
+
+1. **Fetch** the page HTML with [`trafilatura.fetch_url`](https://trafilatura.readthedocs.io). Raw HTML is cached at `news_cache/<new_id>.html` so the extractor can be improved and re-run without re-hitting the source.
+2. **Extract** clean article content with `trafilatura.extract` (precision-favored, no comments/tables/links) plus title and publication date from `extract_metadata`. This is the library that handles ads, cookie banners, sidebars, and paywall stubs.
+3. **Write** one JSON per candidate at `news/<slug>.json` (a list of article objects with the schema documented in [scripts/news.example.yaml](scripts/news.example.yaml)). Per-article output is also cached at `news/_articles/<new_id>.json`, so re-runs skip URLs that already succeeded — delete a cache file to redo just that article.
+
+`publishing_house` and `authors` from the YAML are used to keep track of where each article came from but are not copied into the per-article output (it follows the schema you specified). Add them to the spec if you want them in the output JSON too.
+
 ---
 
 ## 🗃 Data model

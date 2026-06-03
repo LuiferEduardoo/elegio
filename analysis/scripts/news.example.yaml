@@ -1,0 +1,25 @@
+# Input for `python -m scripts.extract_news`.
+#
+# Copy this file to `scripts/news.yaml` and fill in real URLs and metadata.
+# `news.yaml` is gitignored; `news.example.yaml` is the committed template.
+
+candidates:
+  - slug: abelardo-de-la-espriella
+    name: "Abelardo Gabriel de la Espriella"
+    news:
+      - new_id: news-lsv-pensiones-001
+        url: https://www.lasillavacia.com/detector-de-mentiras/pensiones-de-la-espriella
+        source_type: news_article
+        publishing_house: "La Silla Vacía"
+        authors:
+          - "Equipo Detector de Mentiras"
+
+  - slug: ivan-cepeda-castro
+    name: "Iván Cepeda Castro"
+    news:
+      - new_id: news-eltiempo-cepeda-001
+        url: https://www.eltiempo.com/politica/partidos-politicos/ejemplo-articulo-ivan-cepeda
+        source_type: news_article
+        publishing_house: "El Tiempo"
+        authors:
+          - "Redacción Política"

@@ -12,3 +12,8 @@ build/
 transcripts/
 audio_cache/
 scripts/videos.yaml
+
+# News extraction pipeline outputs
+/news/
+/news_cache/
+scripts/news.yaml

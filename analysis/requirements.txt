@@ -12,3 +12,4 @@ pyannote.audio>=3.1,<4
 torch
 torchaudio
 pyyaml
+trafilatura
