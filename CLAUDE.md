@@ -90,3 +90,4 @@ Each service has its own `.env`:
 - Python: Black formatter, Ruff linter
 - TypeScript/React: Prettier, ESLint
 - Commits: Conventional Commits (`feat:`, `fix:`, `chore:`)
+- Commit authorship: only the repo owner. Do **not** add `Co-Authored-By:` trailers (no Claude, no AI agent) — every commit goes solo to the user.
