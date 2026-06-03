@@ -1,0 +1,34 @@
+# Input for `python -m scripts.transcribe_videos`.
+#
+# Copy this file to `scripts/videos.yaml` and fill in real URLs and metadata.
+# `videos.yaml` is gitignored; `videos.example.yaml` is the committed template.
+
+candidates:
+  - slug: abelardo-de-la-espriella
+    name: "Abelardo Gabriel de la Espriella"
+    videos:
+      - video_id: vid-debate-caracol-20260605-001
+        url: https://www.youtube.com/watch?v=EjemploVideo
+        title: "Entrevista a Abelardo de la Espriella"
+        published_date: "2026-06-05"
+        format_type: interview     # debate | interview | pronouncing
+        organized_by: "Caracol Televisión"
+        host_or_interviewer: "Malú Huertas y Jorge Alfredo Vargas"
+        participants:
+          - "Abelardo de la Espriella"
+          - "Malú Huertas"
+          - "Jorge Alfredo Vargas"
+        # language: es   # optional, defaults to "es"
+
+  - slug: ivan-cepeda-castro
+    name: "Iván Cepeda Castro"
+    videos:
+      - video_id: vid-pronouncing-20260610-001
+        url: https://www.youtube.com/watch?v=OtroEjemplo
+        title: "Pronunciamiento de Iván Cepeda sobre reforma a la salud"
+        published_date: "2026-06-10"
+        format_type: pronouncing
+        organized_by: "Equipo de campaña Pacto Histórico"
+        host_or_interviewer: ""
+        participants:
+          - "Iván Cepeda Castro"

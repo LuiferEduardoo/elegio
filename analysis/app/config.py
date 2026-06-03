@@ -11,6 +11,8 @@ class Settings(BaseModel):
     database_url: str = Field(..., min_length=1)
     qdrant_url: str = Field(..., min_length=1)
     qdrant_api_key: str = ""
+    openai_api_key: str = ""
+    hf_token: str = ""
 
 
 settings = Settings(
@@ -18,4 +20,6 @@ settings = Settings(
     database_url=os.getenv("DATABASE_URL", ""),
     qdrant_url=os.getenv("QDRANT_URL", ""),
     qdrant_api_key=os.getenv("QDRANT_API_KEY", ""),
+    openai_api_key=os.getenv("OPENAI_API_KEY", ""),
+    hf_token=os.getenv("HF_TOKEN", ""),
 )

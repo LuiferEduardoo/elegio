@@ -7,3 +7,8 @@ __pycache__/
 *.egg-info/
 dist/
 build/
+
+# Transcription pipeline outputs
+transcripts/
+audio_cache/
+scripts/videos.yaml

@@ -332,6 +332,23 @@ GEMINI_API_KEY=... QDRANT_URL=... DATABASE_URL=... python reindex.py
 
 Unlike `embed_chunks.py` (incremental, idempotent), [`reindex.py`](reindex.py) **drops** the `proposal_chunks` collection, recreates it at the current `EMBEDDING_DIM`, and re-embeds every non-deleted chunk. Run it after changing the embedding model or its output dimensionality — e.g. the migration from `multilingual-e5-large` (1024-dim) to `gemini-embedding-001` (1536-dim) — because the old vectors are incompatible with the new space. Restart the API afterwards (same BM25 caveat as above).
 
+### Transcribing YouTube videos — `scripts/transcribe_videos.py`
+
+```bash
+OPENAI_API_KEY=... HF_TOKEN=... GEMINI_API_KEY=... python -m scripts.transcribe_videos
+```
+
+End-to-end pipeline per video listed in [`scripts/videos.yaml`](scripts/videos.example.yaml) (copy the example to `scripts/videos.yaml` — it is gitignored):
+
+1. **Download** the audio with `yt-dlp` and re-encode to 64 kbps mono mp3 (fits the OpenAI Whisper 25 MB limit for ~50 min) plus a 16 kHz mono PCM wav for diarization. Cached under `audio_cache/`.
+2. **Transcribe** with the **OpenAI Whisper API** (`whisper-1`, verbose_json segments). `gpt-4o-transcribe` / `gpt-4o-mini-transcribe` are cheaper but don't return segment timestamps yet, which the diarization aligner needs. Long audios are split with ffmpeg and their timestamps re-aligned to the original timeline.
+3. **Diarize** with **pyannote.audio** (`pyannote/speaker-diarization-3.1`) to get anonymous `SPEAKER_00`, `SPEAKER_01`, … turns. Requires `HF_TOKEN` from a HuggingFace account that has accepted the model license; first run downloads ~250 MB of weights.
+4. **Align** Whisper segments with diarization turns by maximum time overlap.
+5. **Map** anonymous labels → real participant names. The aligner samples a handful of utterances per speaker and asks **Gemini** to assign one of the `participants` from the YAML, using conversational context (questions vs answers, mentions).
+6. **Write** one JSON per candidate at `transcripts/<slug>.json` (a list of video objects with the schema documented in [scripts/videos.example.yaml](scripts/videos.example.yaml)). Per-video output is also cached at `transcripts/_videos/<video_id>.json`, so re-runs skip work that already succeeded — delete a cache file to redo just that video.
+
+System prerequisites: **ffmpeg** on `$PATH`. A CUDA GPU dramatically speeds up pyannote (CPU runs at roughly 10× realtime).
+
 ---
 
 ## 🗃 Data model
