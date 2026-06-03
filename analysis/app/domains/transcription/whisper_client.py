@@ -1,14 +1,15 @@
-"""Thin wrapper around the OpenAI audio transcription API.
+"""Thin wrapper around the OpenAI Whisper API (model ``whisper-1``).
 
-Uses ``gpt-4o-transcribe`` with ``verbose_json`` segment timestamps —
-gpt-4o-transcribe is less prone than ``whisper-1`` to the "Subtítulos
-realizados por la comunidad de Amara.org" hallucination loop on music or
-silence, because it was not trained on the same subtitle-credits corpus.
+Whisper is the only OpenAI audio model that currently supports
+``response_format="verbose_json"`` with ``timestamp_granularities=["segment"]``.
+The newer ``gpt-4o-transcribe`` / ``gpt-4o-mini-transcribe`` only accept
+``json`` / ``text`` and return no segment timestamps — which would break the
+aligner step (we need start/end per Whisper segment to match pyannote turns).
 
-Returns segments with absolute timestamps in the original audio's timeline.
-The caller is expected to feed the chunks produced by
-:func:`app.domains.transcription.audio.chunk_for_whisper` so each chunk's
-local timestamps are shifted by the chunk's start offset.
+Returns segments with absolute timestamps in the original audio's timeline. The
+caller is expected to feed the chunks produced by
+:func:`app.domains.transcription.audio.chunk_for_whisper` so each chunk's local
+timestamps are shifted by the chunk's start offset.
 """
 
 from dataclasses import dataclass
@@ -18,7 +19,7 @@ from openai import OpenAI
 
 from app.config import settings
 
-MODEL = "gpt-4o-transcribe"
+MODEL = "whisper-1"
 
 
 @dataclass(slots=True)
