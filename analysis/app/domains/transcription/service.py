@@ -36,6 +36,7 @@ from app.domains.transcription import (
     whisper_client,
 )
 from app.domains.transcription.diarizer import DiarSegment
+from app.domains.transcription.hallucinations import filter_hallucinations
 from app.domains.transcription.whisper_client import TranscriptSegment
 
 
@@ -114,6 +115,10 @@ def process_video(spec: VideoSpec, cache_root: Path) -> dict[str, Any]:
         chunks = audio.chunk_for_whisper(mp3, work_dir / "chunks")
         transcript = whisper_client.transcribe_chunks(chunks, language=spec.language)
         _write_json(transcript_cache, [asdict(s) for s in transcript])
+
+    # Strip known Whisper hallucinations (Amara.org tagline, consecutive
+    # duplicates) before alignment, regardless of cache origin.
+    transcript = filter_hallucinations(transcript)
 
     # --- pyannote diarization (cached) ---
     if diarization_cache.exists():
