@@ -13,3 +13,4 @@ torch
 torchaudio
 pyyaml
 trafilatura
+ftfy

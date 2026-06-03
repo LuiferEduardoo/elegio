@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any
 
 from app.domains.news import extractor, fetcher
+from app.domains.news.preprocessor import clean_content, clean_title
 
 
 @dataclass(slots=True)
@@ -32,9 +33,9 @@ def process_article(spec: NewsSpec, cache_root: Path) -> dict[str, Any]:
     return {
         "new_id": spec.new_id,
         "source_type": "news_article",
-        "title": article.title,
+        "title": clean_title(article.title),
         "url": spec.url,
         "published_date": article.published_date,
         "processed_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "content": article.content,
+        "content": clean_content(article.content),
     }
