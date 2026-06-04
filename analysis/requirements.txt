@@ -14,3 +14,9 @@ torchaudio
 pyyaml
 trafilatura
 ftfy
+docling
+# Docling pulls transformers; pin <5 because 5.x needs torch>=2.7 while pyannote
+# keeps us on torch 2.4.1. torchvision must be the +cpu build matching torch
+# (install via the PyTorch CPU index) or torchvision ops fail to register.
+transformers>=4.42,<5
+torchvision

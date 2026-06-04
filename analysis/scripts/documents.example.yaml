@@ -1,0 +1,33 @@
+# Input for `python -m scripts.extract_documents`.
+#
+# Copy this file to `scripts/documents.yaml` and fill in real PDF paths and
+# metadata. `documents.yaml` is gitignored; `documents.example.yaml` is the
+# committed template.
+#
+# Each PDF is associated with a candidate. `path` is relative to the analysis/
+# repo root (or absolute). `title` and `published_date` are optional — when
+# omitted, Docling's detected title (first heading) is used and the date stays
+# null.
+
+candidates:
+  - slug: abelardo-de-la-espriella
+    name: "Abelardo Gabriel de la Espriella"
+    documents:
+      - doc_id: doc-abelardo-programa-001
+        path: pdfs/abelardo-programa-de-gobierno.pdf
+        source_type: pdf_document
+        title: "Programa de Gobierno"
+        published_date: "2026-01-15"
+        publishing_house: "Campaña Abelardo de la Espriella"
+        authors:
+          - "Equipo programático"
+
+  - slug: ivan-cepeda-castro
+    name: "Iván Cepeda Castro"
+    documents:
+      - doc_id: doc-cepeda-propuesta-001
+        path: pdfs/cepeda-propuesta-economica.pdf
+        source_type: pdf_document
+        publishing_house: "Campaña Iván Cepeda"
+        authors:
+          - "Equipo programático"

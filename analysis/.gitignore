@@ -17,3 +17,9 @@ scripts/videos.yaml
 /news/
 /news_cache/
 scripts/news.yaml
+
+# PDF (Docling) extraction pipeline outputs
+/documents/
+/document_cache/
+/pdfs/
+scripts/documents.yaml
