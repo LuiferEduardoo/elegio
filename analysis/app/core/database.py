@@ -176,3 +176,54 @@ news_chunks_table = Table(
     ),
     Column("deleted_at", DateTime, nullable=True),
 )
+
+documents_table = Table(
+    "documents",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("uuid", String(36), nullable=False, unique=True, index=True),
+    Column("candidate_id", Integer, ForeignKey("candidates.id"), nullable=False),
+    Column("source_type", String(50), nullable=False),
+    Column("type", String(50), nullable=True),
+    Column("title", String(255), nullable=True),
+    Column("url", Text, nullable=True),
+    Column("content", Text, nullable=False),
+    Column("publishing_house", String(100), nullable=True),
+    Column("published_date", Date, nullable=True),
+    Column("page_count", Integer, nullable=True),
+    Column("processed_at", DateTime, server_default=func.now(), nullable=False),
+    Column("created_at", DateTime, server_default=func.now(), nullable=False),
+    Column(
+        "updated_at",
+        DateTime,
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    ),
+    Column("deleted_at", DateTime, nullable=True),
+)
+
+document_chunks_table = Table(
+    "document_chunks",
+    metadata,
+    Column("id", BigInteger, primary_key=True, autoincrement=True),
+    Column(
+        "document_id",
+        Integer,
+        ForeignKey("documents.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    ),
+    Column("chunk_index", Integer, nullable=False),
+    Column("total_chunks", Integer, nullable=False),
+    Column("content_chunk", Text, nullable=False),
+    Column("created_at", DateTime, server_default=func.now(), nullable=False),
+    Column(
+        "updated_at",
+        DateTime,
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    ),
+    Column("deleted_at", DateTime, nullable=True),
+)
