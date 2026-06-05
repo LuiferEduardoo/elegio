@@ -44,6 +44,7 @@ def _document_spec(raw: dict) -> DocumentSpec:
     return DocumentSpec(
         doc_id=raw["doc_id"],
         path=_resolve_path(raw["path"]),
+        type=raw.get("type"),
         title=raw.get("title"),
         publishing_house=raw.get("publishing_house", ""),
         authors=tuple(raw.get("authors", [])),
@@ -55,6 +56,26 @@ def _write_json(path: Path, data) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
+
+
+def _backfill_type(document: dict, spec: DocumentSpec) -> bool:
+    """Inject ``type`` into an older cached document in canonical position
+    (right after ``source_type``), without touching its content.
+
+    Returns ``True`` if the document was modified. This lets us add the field to
+    JSON produced before it existed without re-running Docling.
+    """
+    if document.get("type") == spec.type:
+        return False
+    ordered: dict = {}
+    for key, value in document.items():
+        ordered[key] = value
+        if key == "source_type":
+            ordered["type"] = spec.type
+    ordered.setdefault("type", spec.type)
+    document.clear()
+    document.update(ordered)
+    return True
 
 
 def main(yaml_path: Path = DEFAULT_YAML) -> None:
@@ -89,8 +110,13 @@ def main(yaml_path: Path = DEFAULT_YAML) -> None:
             spec = _document_spec(raw)
             cache_path = PER_DOC_DIR / f"{spec.doc_id}.json"
             if cache_path.exists():
-                print(f"  · {spec.doc_id}: cached, skipping")
-                outputs.append(json.loads(cache_path.read_text(encoding="utf-8")))
+                cached_doc = json.loads(cache_path.read_text(encoding="utf-8"))
+                if _backfill_type(cached_doc, spec):
+                    _write_json(cache_path, cached_doc)
+                    print(f"  · {spec.doc_id}: cached (backfilled type)")
+                else:
+                    print(f"  · {spec.doc_id}: cached, skipping")
+                outputs.append(cached_doc)
                 continue
 
             print(f"  · {spec.doc_id}: processing {spec.path}")

@@ -7,7 +7,8 @@
 # Each PDF is associated with a candidate. `path` is relative to the analysis/
 # repo root (or absolute). `title` and `published_date` are optional — when
 # omitted, Docling's detected title (first heading) is used and the date stays
-# null.
+# null. `type` classifies the document (e.g. "legal_document",
+# "campaign_document") and is copied verbatim into the output JSON.
 
 candidates:
   - slug: abelardo-de-la-espriella
@@ -16,6 +17,7 @@ candidates:
       - doc_id: doc-abelardo-programa-001
         path: pdfs/abelardo-programa-de-gobierno.pdf
         source_type: pdf_document
+        type: campaign_document
         title: "Programa de Gobierno"
         published_date: "2026-01-15"
         publishing_house: "Campaña Abelardo de la Espriella"
@@ -28,6 +30,7 @@ candidates:
       - doc_id: doc-cepeda-propuesta-001
         path: pdfs/cepeda-propuesta-economica.pdf
         source_type: pdf_document
+        type: legal_document
         publishing_house: "Campaña Iván Cepeda"
         authors:
           - "Equipo programático"
