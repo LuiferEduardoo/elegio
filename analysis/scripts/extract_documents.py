@@ -45,6 +45,7 @@ def _document_spec(raw: dict) -> DocumentSpec:
         doc_id=raw["doc_id"],
         path=_resolve_path(raw["path"]),
         type=raw.get("type"),
+        url=raw.get("url"),
         title=raw.get("title"),
         publishing_house=raw.get("publishing_house", ""),
         authors=tuple(raw.get("authors", [])),
@@ -58,24 +59,37 @@ def _write_json(path: Path, data) -> None:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
 
-def _backfill_type(document: dict, spec: DocumentSpec) -> bool:
-    """Inject ``type`` into an older cached document in canonical position
-    (right after ``source_type``), without touching its content.
-
-    Returns ``True`` if the document was modified. This lets us add the field to
-    JSON produced before it existed without re-running Docling.
-    """
-    if document.get("type") == spec.type:
-        return False
+def _insert_after(document: dict, field: str, value, after: str) -> None:
+    """Set ``document[field] = value`` positioned right after key ``after``."""
     ordered: dict = {}
-    for key, value in document.items():
-        ordered[key] = value
-        if key == "source_type":
-            ordered["type"] = spec.type
-    ordered.setdefault("type", spec.type)
+    for key, val in document.items():
+        if key == field:
+            continue
+        ordered[key] = val
+        if key == after:
+            ordered[field] = value
+    ordered.setdefault(field, value)
     document.clear()
     document.update(ordered)
-    return True
+
+
+def _backfill_fields(document: dict, spec: DocumentSpec) -> bool:
+    """Inject fields added to the schema after a document was already cached,
+    each in canonical position, without touching its content or re-running
+    Docling. Returns ``True`` if the document was modified.
+    """
+    # (field, value, key to sit after)
+    wanted = [
+        ("type", spec.type, "source_type"),
+        ("url", spec.url, "source_path"),
+    ]
+    changed = False
+    for field, value, after in wanted:
+        if document.get(field) == value:
+            continue
+        _insert_after(document, field, value, after)
+        changed = True
+    return changed
 
 
 def main(yaml_path: Path = DEFAULT_YAML) -> None:
@@ -111,9 +125,9 @@ def main(yaml_path: Path = DEFAULT_YAML) -> None:
             cache_path = PER_DOC_DIR / f"{spec.doc_id}.json"
             if cache_path.exists():
                 cached_doc = json.loads(cache_path.read_text(encoding="utf-8"))
-                if _backfill_type(cached_doc, spec):
+                if _backfill_fields(cached_doc, spec):
                     _write_json(cache_path, cached_doc)
-                    print(f"  · {spec.doc_id}: cached (backfilled type)")
+                    print(f"  · {spec.doc_id}: cached (backfilled new fields)")
                 else:
                     print(f"  · {spec.doc_id}: cached, skipping")
                 outputs.append(cached_doc)

@@ -8,7 +8,8 @@
 # repo root (or absolute). `title` and `published_date` are optional — when
 # omitted, Docling's detected title (first heading) is used and the date stays
 # null. `type` classifies the document (e.g. "legal_document",
-# "campaign_document") and is copied verbatim into the output JSON.
+# "campaign_document") and `url` is the remote source of the PDF; both are
+# copied verbatim into the output JSON.
 
 candidates:
   - slug: abelardo-de-la-espriella
@@ -16,6 +17,7 @@ candidates:
     documents:
       - doc_id: doc-abelardo-programa-001
         path: pdfs/abelardo-programa-de-gobierno.pdf
+        url: https://www.lasillavacia.com/wp-content/uploads/2026/01/abelardo-programa-de-gobierno.pdf
         source_type: pdf_document
         type: campaign_document
         title: "Programa de Gobierno"
@@ -29,6 +31,7 @@ candidates:
     documents:
       - doc_id: doc-cepeda-propuesta-001
         path: pdfs/cepeda-propuesta-economica.pdf
+        url: https://caracoltv.brightspotcdn.com/50/24/1fa24d804261bb18edde4bcee370/auto-ip-radicados-001339-1349-y-1482.pdf
         source_type: pdf_document
         type: legal_document
         publishing_house: "Campaña Iván Cepeda"

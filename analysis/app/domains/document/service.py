@@ -23,6 +23,7 @@ class DocumentSpec:
     doc_id: str
     path: Path
     type: str | None = None  # e.g. "legal_document", "campaign_document"
+    url: str | None = None  # remote source of the PDF, if any
     title: str | None = None
     publishing_house: str = ""
     authors: tuple[str, ...] = ()
@@ -57,6 +58,7 @@ def process_document(spec: DocumentSpec, cache_root: Path) -> dict[str, Any]:
         "type": spec.type,
         "title": clean_title(spec.title),
         "source_path": str(spec.path),
+        "url": spec.url,
         "publishing_house": spec.publishing_house,
         "authors": list(spec.authors),
         "published_date": spec.published_date,
