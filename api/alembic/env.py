@@ -15,6 +15,7 @@ from app.domains.answer import models as _answer_models  # noqa: F401
 from app.domains.candidate import models as _candidate_models  # noqa: F401
 from app.domains.category import models as _category_models  # noqa: F401
 from app.domains.document import models as _document_models  # noqa: F401
+from app.domains.document_chunk import models as _document_chunk_models  # noqa: F401
 from app.domains.event import models as _event_models  # noqa: F401
 from app.domains.government_plan import models as _government_plan_models  # noqa: F401
 from app.domains.news import models as _news_models  # noqa: F401
