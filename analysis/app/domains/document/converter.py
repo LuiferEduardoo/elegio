@@ -29,7 +29,7 @@ def _converter() -> DocumentConverter:
     return DocumentConverter()
 
 
-def _first_heading(markdown: str) -> str | None:
+def first_heading(markdown: str) -> str | None:
     """Use the first Markdown ATX heading as a title fallback, if any."""
     for line in markdown.splitlines():
         stripped = line.strip()
@@ -49,7 +49,7 @@ def convert_pdf(path: Path) -> ConvertedDocument:
     doc = result.document
     markdown = doc.export_to_markdown()
 
-    title = _first_heading(markdown) or (doc.name or None)
+    title = first_heading(markdown) or (doc.name or None)
     page_count = len(getattr(doc, "pages", {}) or {})
 
     return ConvertedDocument(title=title, page_count=page_count, markdown=markdown)

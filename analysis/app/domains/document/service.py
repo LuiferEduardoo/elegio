@@ -38,7 +38,12 @@ def _markdown_for(spec: DocumentSpec, cache_root: Path) -> tuple[str, int]:
     """
     md_cache = cache_root / f"{spec.doc_id}.md"
     if md_cache.exists():
-        return md_cache.read_text(encoding="utf-8"), 0
+        markdown = md_cache.read_text(encoding="utf-8")
+        # Title is re-derivable from the Markdown; page count is not (it needs
+        # Docling), so a cache hit reports 0 — delete the .md cache to recover it.
+        if spec.title is None:
+            spec.title = converter.first_heading(markdown)
+        return markdown, 0
 
     converted = converter.convert_pdf(spec.path)
     md_cache.parent.mkdir(parents=True, exist_ok=True)
