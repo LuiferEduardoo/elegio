@@ -5,6 +5,7 @@ from app.config import settings
 from app.core.embedder import EMBEDDING_DIM
 
 COLLECTION_NAME = "proposal_chunks"
+NEWS_COLLECTION_NAME = "news_chunks"
 
 
 def get_qdrant_client() -> QdrantClient:
