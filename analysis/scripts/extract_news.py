@@ -45,6 +45,26 @@ def _write_json(path: Path, data) -> None:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
 
+def _backfill_publishing_house(article: dict, spec: NewsSpec) -> bool:
+    """Inject ``publishing_house`` into an older cached article in canonical
+    position (right after ``source_type``), without touching its content.
+
+    Returns ``True`` if the article was modified. This lets us add the field to
+    JSON produced before it existed while preserving any manual content edits.
+    """
+    if article.get("publishing_house") == spec.publishing_house:
+        return False
+    ordered: dict = {}
+    for key, value in article.items():
+        ordered[key] = value
+        if key == "source_type":
+            ordered["publishing_house"] = spec.publishing_house
+    ordered.setdefault("publishing_house", spec.publishing_house)
+    article.clear()
+    article.update(ordered)
+    return True
+
+
 def main(yaml_path: Path = DEFAULT_YAML) -> None:
     config = _load_yaml(yaml_path)
     candidates = config.get("candidates", [])
@@ -77,8 +97,13 @@ def main(yaml_path: Path = DEFAULT_YAML) -> None:
             spec = _news_spec(raw)
             cache_path = PER_ARTICLE_DIR / f"{spec.new_id}.json"
             if cache_path.exists():
-                print(f"  · {spec.new_id}: cached, skipping")
-                outputs.append(json.loads(cache_path.read_text(encoding="utf-8")))
+                cached_article = json.loads(cache_path.read_text(encoding="utf-8"))
+                if _backfill_publishing_house(cached_article, spec):
+                    _write_json(cache_path, cached_article)
+                    print(f"  · {spec.new_id}: cached (backfilled publishing_house)")
+                else:
+                    print(f"  · {spec.new_id}: cached, skipping")
+                outputs.append(cached_article)
                 continue
 
             print(f"  · {spec.new_id}: processing {spec.url}")

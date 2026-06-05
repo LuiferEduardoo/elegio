@@ -33,6 +33,7 @@ def process_article(spec: NewsSpec, cache_root: Path) -> dict[str, Any]:
     return {
         "new_id": spec.new_id,
         "source_type": "news_article",
+        "publishing_house": spec.publishing_house,
         "title": clean_title(article.title),
         "url": spec.url,
         "published_date": article.published_date,
