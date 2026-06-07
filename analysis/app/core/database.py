@@ -282,3 +282,30 @@ interview_segments_table = Table(
     ),
     Column("deleted_at", DateTime, nullable=True),
 )
+
+interview_chunks_table = Table(
+    "interview_chunks",
+    metadata,
+    Column("id", BigInteger, primary_key=True, autoincrement=True),
+    Column(
+        "interview_id",
+        Integer,
+        ForeignKey("interviews.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    ),
+    Column("chunk_index", Integer, nullable=False),
+    Column("total_chunks", Integer, nullable=False),
+    Column("start_time", Time, nullable=False),
+    Column("end_time", Time, nullable=False),
+    Column("content_chunk", Text, nullable=False),
+    Column("created_at", DateTime, server_default=func.now(), nullable=False),
+    Column(
+        "updated_at",
+        DateTime,
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    ),
+    Column("deleted_at", DateTime, nullable=True),
+)
