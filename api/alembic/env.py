@@ -18,6 +18,7 @@ from app.domains.document import models as _document_models  # noqa: F401
 from app.domains.document_chunk import models as _document_chunk_models  # noqa: F401
 from app.domains.event import models as _event_models  # noqa: F401
 from app.domains.government_plan import models as _government_plan_models  # noqa: F401
+from app.domains.interview import models as _interview_models  # noqa: F401
 from app.domains.news import models as _news_models  # noqa: F401
 from app.domains.news_chunk import models as _news_chunk_models  # noqa: F401
 from app.domains.posture import models as _posture_models  # noqa: F401
