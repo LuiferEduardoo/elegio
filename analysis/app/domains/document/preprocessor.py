@@ -34,6 +34,11 @@ _HTML_COMMENT_RE = re.compile(r"<!--.*?-->", re.DOTALL)
 # duplicate and kept once.
 _RUNNING_BLOCK_MIN_REPEATS = 3
 
+# A repeated block must have at least this many words to count as a running
+# header/footer. Protects short, legitimately-repeated fragments (and Docling's
+# one-token blocks from image-heavy PDFs) from being stripped.
+_MIN_HEADER_WORDS = 5
+
 # Document-specific boilerplate to strip wherever it appears (e.g. campaign
 # slogans that dilute semantic density). Extend as you spot recurring phrases;
 # matching is case-insensitive. Left empty by default — only add phrases that
@@ -49,24 +54,36 @@ _BOILERPLATE_RE = (
 def _strip_repeated_blocks(text: str) -> str:
     """Drop running headers/footers and redundant duplicate paragraphs.
 
-    Paragraphs are blank-line separated. A block repeated
-    ``_RUNNING_BLOCK_MIN_REPEATS`` times or more is treated as a running
-    header/footer: every standalone occurrence is removed *and* any inline copy
-    spliced into a sentence is stripped too (PDFs stamp the header mid-text when
-    a sentence spans a page break). A block appearing exactly twice is an
-    accidental duplicate and kept on its first occurrence only. Order is
+    Paragraphs are blank-line separated. A *substantial* block (>= so many
+    words) repeated ``_RUNNING_BLOCK_MIN_REPEATS`` times or more is treated as a
+    running header/footer: every standalone occurrence is removed *and* any
+    inline copy spliced into a sentence is stripped too. A substantial block
+    appearing exactly twice is an accidental duplicate and kept once.
+
+    The word-count floor is critical: image-heavy PDFs make Docling fragment the
+    text into tiny one-token blocks (``▪``, ``.``, ``2024`` …) that repeat a lot;
+    without it, the inline strip would delete every period, comma and common word
+    from the whole document. Short repeats are therefore left untouched. Order is
     otherwise preserved.
     """
     paragraphs = [p.strip() for p in text.split("\n\n")]
     counts = Counter(p for p in paragraphs if p)
-    running = {p for p, n in counts.items() if n >= _RUNNING_BLOCK_MIN_REPEATS}
+
+    def substantial(p: str) -> bool:
+        return len(p.split()) >= _MIN_HEADER_WORDS
+
+    running = {
+        p
+        for p, n in counts.items()
+        if n >= _RUNNING_BLOCK_MIN_REPEATS and substantial(p)
+    }
 
     kept: list[str] = []
     seen: set[str] = set()
     for para in paragraphs:
         if not para or para in running:
             continue  # blank or standalone running header/footer
-        if counts[para] >= 2:
+        if counts[para] >= 2 and substantial(para):
             if para in seen:
                 continue  # duplicate: keep only the first occurrence
             seen.add(para)
