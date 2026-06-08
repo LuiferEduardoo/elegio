@@ -1,6 +1,6 @@
 # Elegio API
 
-Backend FastAPI for **Elegio**, an open-source platform that helps voters choose a presidential candidate. The API powers the test-based recommender, the comparison of candidate proposals, and the analytics events captured during a test attempt. It is consumed by the [frontend](../frontend) and the [analysis](../analysis) services.
+Backend FastAPI for **Elegio**, an open-source platform that helps voters choose a presidential candidate. The API powers the test-based recommender, the comparison of candidate proposals, and the analytics events captured during a test attempt. It is consumed by the [frontend](../elegio-front) and the [analysis](../analysis) services.
 
 ---
 
@@ -26,6 +26,7 @@ Backend FastAPI for **Elegio**, an open-source platform that helps voters choose
   - [Events](#events)
   - [Answers](#answers)
   - [Search](#search)
+- [Content-source tables](#-content-source-tables)
 - [Conventions](#-conventions)
 - [Common commands](#-common-commands)
 - [Code style](#-code-style)
@@ -124,8 +125,15 @@ api/
 │       ├── answer/
 │       ├── candidate/
 │       ├── category/
+│       ├── document/         # Candidate PDFs (extracted Markdown)
+│       ├── document_chunk/   # Structure-aware chunks of a document
 │       ├── event/
 │       ├── government_plan/
+│       ├── interview/        # Interview / speech transcripts
+│       ├── interview_chunk/  # Conversation-aware chunks of an interview
+│       ├── interview_segment/# Merged per-speaker turns of an interview
+│       ├── news/             # Candidate news articles
+│       ├── news_chunk/       # Paragraph chunks of a news article
 │       ├── posture/
 │       ├── proposal/
 │       ├── proposal_chunk/
@@ -1208,6 +1216,85 @@ Response shape — defined by [`SearchResponse`](app/domains/search/schemas.py) 
 | `sources`        | List of `{ id, url }` source references attached to the proposal in MySQL.                   |
 
 Errors: `422` if `q` is empty; `429` rate limit.
+
+---
+
+## 🗂 Content-source tables
+
+In addition to proposals, the schema models three other candidate content sources — **news articles**, **documents** (PDFs), and **interviews** (video/speech transcripts). Each parent table is paired with a chunk table feeding the RAG pipeline, mirroring `proposals` / `proposal_chunks`. These are **model-only domains**: they define SQLAlchemy models and Alembic migrations but expose **no REST endpoints yet** — they are populated and consumed by the [analysis](../analysis) service.
+
+Shared conventions across all three sources:
+
+- The parent table carries a `uuid` (`String(36)`, unique + indexed) for external/Qdrant use; the numeric `id` stays internal. It also has a `candidate_id` FK to `candidates`, a `source_type`, a `processed_at` timestamp, and the usual `TimestampMixin` columns (`created_at`, `updated_at`, `deleted_at`).
+- Chunk and segment tables use a `BigInteger` primary key and a FK to their parent with `ON DELETE CASCADE`. Chunk tables carry `chunk_index` (0-based), `total_chunks`, and `content_chunk`.
+- All models are registered in [alembic/env.py](alembic/env.py) so autogenerate detects them.
+
+### News
+
+[models.py](app/domains/news/models.py) — `news` table. A candidate news article.
+
+| Column             | Type                 | Nullable | Description                                          |
+| ------------------ | -------------------- | :------: | ---------------------------------------------------- |
+| `uuid`             | `String(36)`         |    no    | Unique, indexed external id                          |
+| `candidate_id`     | `FK → candidates.id` |    no    | Owning candidate                                     |
+| `source_type`      | `String(50)`         |    no    | Origin classification                                |
+| `publishing_house` | `String(100)`        |    no    | Outlet that published the article                    |
+| `title`            | `String(255)`        |    no    | Article headline                                     |
+| `url`              | `Text`               |    no    | Source URL                                           |
+| `published_date`   | `Date`               |    no    | Publication date                                     |
+| `processed_at`     | `DateTime`           |    no    | When the pipeline processed the article              |
+| `content_raw`      | `LONGTEXT`           |    no    | Full, untouched article text                         |
+
+[news_chunk/models.py](app/domains/news_chunk/models.py) — `news_chunks` table: `news_id` (FK → `news.id`, `CASCADE`), `chunk_index`, `total_chunks`, `content_chunk` (`Text`).
+
+Created by migrations `7daad636ff49_create_news_table` and `333f617fb677_create_news_chunks_table`.
+
+### Documents
+
+[models.py](app/domains/document/models.py) — `documents` table. A candidate PDF, parsed into Markdown. Most metadata is nullable because it may not be known at extraction time.
+
+| Column             | Type                 | Nullable | Description                                                    |
+| ------------------ | -------------------- | :------: | -------------------------------------------------------------- |
+| `uuid`             | `String(36)`         |    no    | Unique, indexed external id                                    |
+| `candidate_id`     | `FK → candidates.id` |    no    | Owning candidate                                               |
+| `source_type`      | `String(50)`         |    no    | Origin classification                                          |
+| `type`             | `String(50)`         |   yes    | Document classification, e.g. `legal_document`, `campaign_document` |
+| `title`            | `String(255)`        |   yes    | Document title                                                 |
+| `url`              | `Text`               |   yes    | Remote source of the PDF                                       |
+| `content`          | `LONGTEXT`           |    no    | Full extracted Markdown content                               |
+| `publishing_house` | `String(100)`        |   yes    | Publisher                                                      |
+| `published_date`   | `Date`               |   yes    | Publication date                                              |
+| `page_count`       | `Integer`            |   yes    | Number of pages in the source PDF                             |
+| `processed_at`     | `DateTime`           |    no    | When the pipeline processed the document                      |
+
+[document_chunk/models.py](app/domains/document_chunk/models.py) — `document_chunks` table: `document_id` (FK → `documents.id`, `CASCADE`), `chunk_index`, `total_chunks`, `content_chunk` (`Text`).
+
+Created by migrations `bc782d1f93e3_create_documents_table` and `cdff2cefe768_create_document_chunks_table`.
+
+### Interviews
+
+[models.py](app/domains/interview/models.py) — `interviews` table. A candidate interview / debate / speech transcript (one row per video).
+
+| Column                | Type                 | Nullable | Description                                              |
+| --------------------- | -------------------- | :------: | -------------------------------------------------------- |
+| `uuid`                | `String(36)`         |    no    | Unique, indexed external id (== source `video_id`)       |
+| `candidate_id`        | `FK → candidates.id` |    no    | Owning candidate                                          |
+| `source_type`         | `String(50)`         |    no    | Origin classification, e.g. `video_broadcast`            |
+| `format_type`         | `String(50)`         |   yes    | Content format: `interview`, `debate`, or `pronouncing`  |
+| `title`               | `String(255)`        |    no    | Title of the recording                                   |
+| `media_outlet`        | `String(100)`        |    no    | Outlet / platform                                        |
+| `organized_by`        | `String(100)`        |   yes    | Organizing entity                                        |
+| `host_or_interviewer` | `String(100)`        |   yes    | Host / interviewer                                       |
+| `participants`        | `JSON`               |   yes    | List of participants                                     |
+| `interview_date`      | `Date`               |    no    | Date of the interview                                    |
+| `url_video_audio`     | `Text`               |   yes    | URL of the video / audio                                 |
+| `processed_at`        | `DateTime`           |    no    | When the pipeline processed the interview                |
+
+[interview_segment/models.py](app/domains/interview_segment/models.py) — `interview_segments` table: one merged per-speaker turn. `interview_id` (FK → `interviews.id`, `CASCADE`), `start_time` / `end_time` (`Time`), `speaker` (`String(100)`), `text_segment` (`Text`).
+
+[interview_chunk/models.py](app/domains/interview_chunk/models.py) — `interview_chunks` table: conversation-aware chunks. `interview_id` (FK → `interviews.id`, `CASCADE`), `chunk_index`, `total_chunks`, `start_time` / `end_time` (`Time`, the span covered by the grouped turns), `content_chunk` (`Text`).
+
+Created by migrations `0a62dafeffaa_create_interviews_table`, `2e5a7415da74_add_metadata_columns_to_interviews`, `2e31ee56595e_create_interview_segments_table`, and `987e3376d032_create_interview_chunks_table`.
 
 ---
 
