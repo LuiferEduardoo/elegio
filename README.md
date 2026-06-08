@@ -35,10 +35,11 @@ elegio/
 - **TypeScript** - Type-safe development
 
 ### AI
-- **Gemini API** - Proposal analysis, plus `gemini-embedding-001` for proposal/query embeddings
-- **gemini-embedding-001** - 1536-dim multilingual embeddings (via the Gemini API, no local model) for proposal chunks and search queries
-- **Qdrant** - Vector database (cosine similarity) for semantic search over proposal chunks
+- **Gemini API** - Proposal analysis, plus `gemini-embedding-001` for content/query embeddings
+- **gemini-embedding-001** - 1536-dim multilingual embeddings (via the Gemini API, no local model) for every content chunk and for search queries
+- **Qdrant** - Vector database (cosine similarity) with one collection per content type: `proposal_chunks`, `news_chunks`, `document_chunks`, `interview_chunks`
 - **rank-bm25** - In-memory lexical index fused with the dense results via Reciprocal Rank Fusion
+- **Content sources** - RAG ingestion pipelines for proposals, news (trafilatura), documents (Docling PDF → Markdown), and interviews (Whisper + pyannote transcripts)
 
 ## 📦 Installation
 

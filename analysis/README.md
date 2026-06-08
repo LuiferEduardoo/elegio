@@ -2,7 +2,7 @@
 
 Offline Python tool that uses **Google Gemini** to classify (rate) the political proposals stored by the [Elegio API](../api) on a `-1.0` / `+1.0` descriptive axis. For every proposal that does not yet have a `Posture`, the tool builds a category-specific prompt, asks Gemini for a JSON-structured rating, and writes the result back into the same MySQL database the API uses. It is a **batch script**, not a service: there is no HTTP server and no public API surface.
 
-This service also owns the **chunking + embedding pipelines** that feed the API's hybrid search endpoint: it splits proposals into paragraph-aware chunks, embeds them with `gemini-embedding-001` (Gemini API), and upserts the vectors into a Qdrant collection that the API queries at search time.
+This service also owns the **chunking + embedding pipelines** that feed the API's hybrid search endpoint. Beyond proposals, it ingests three more candidate content sources — **news articles**, **documents** (PDFs), and **interviews** (video/speech transcripts) — each through its own `extract/load → chunk → embed` pipeline. Every content type is chunked, embedded with `gemini-embedding-001` (Gemini API), and upserted into its **own** Qdrant collection that the API can query at search time.
 
 ---
 
@@ -48,8 +48,10 @@ Human reviewers can later add their own postures (with `coder_type = "human"`) f
 - **Pydantic v2** — schemas for the LLM response and the in-memory proposal/category models
 - **python-dotenv** — loads `.env` into process environment
 - **pandas** — available for ad-hoc data exploration scripts (not used by `rate_batch` itself)
-- **gemini-embedding-001** (via **google-genai**) — 1536-dim multilingual embeddings used by the chunking/embedding pipeline; no local model is loaded
-- **qdrant-client** — pushes the embeddings into a local Qdrant instance (the same one the API queries)
+- **gemini-embedding-001** (via **google-genai**) — 1536-dim multilingual embeddings used by every chunking/embedding pipeline; no local model is loaded
+- **qdrant-client** — pushes the embeddings into a local Qdrant instance (the same one the API queries). One collection per content type: `proposal_chunks`, `news_chunks`, `document_chunks`, `interview_chunks`
+- **trafilatura** + **ftfy** — HTML article extraction and encoding repair for the news pipeline
+- **docling** — parses PDFs into structure-preserving Markdown for the documents pipeline. It pulls `transformers`, which is pinned `<5` to stay compatible with the `torch 2.4.1` that pyannote requires; `torchvision` must be the matching `+cpu` build
 
 > Unlike the [API](../api), this project uses **sync** SQLAlchemy. There is no async loop and no ORM session; data access goes through SQLAlchemy Core (`Table`, `select`, `insert`).
 
@@ -63,27 +65,69 @@ analysis/
 │   ├── __init__.py
 │   ├── config.py                       # Settings loader (.env → pydantic model)
 │   ├── core/
-│   │   ├── database.py                 # Sync engine + Core Tables (categories, proposals, postures, proposal_chunks)
+│   │   ├── database.py                 # Sync engine + Core Tables (categories, proposals, postures, *_chunks, news, documents, interviews, ...)
 │   │   ├── gemini_client.py            # GeminiClassifier wrapper around google-genai
 │   │   ├── embedder.py                 # Embedder wrapper around google-genai (gemini-embedding-001)
-│   │   └── qdrant_client.py            # Qdrant client + ensure_collection() helper
+│   │   └── qdrant_client.py            # Qdrant client + collection names + ensure_collection() helper
 │   └── domains/
 │       ├── posture_proposal/
 │       │   ├── prompt.py               # build_prompt(category, text) → Spanish prompt
 │       │   ├── rubrics.py              # RUBRICS dict: per-category poles + numeric anchors
 │       │   ├── schemas.py              # Pydantic models (QualificationLLM, ProposalRead, ...)
 │       │   └── service.py              # PostureService.rate_proposal(proposal)
-│       └── proposal_chunk/
-│           ├── chunker.py              # Paragraph-aware chunking (target/max/overlap in words)
-│           ├── embedding.py            # MySQL → Qdrant glue (fetch_chunks, embed_and_upsert, ...)
-│           ├── schemas.py
-│           └── service.py              # chunk_and_insert + get_pending_proposals
+│       ├── proposal_chunk/
+│       │   ├── chunker.py              # Paragraph-aware chunking (target/max/overlap in words)
+│       │   ├── embedding.py            # MySQL → Qdrant glue (fetch_chunks, embed_and_upsert, ...)
+│       │   ├── schemas.py
+│       │   └── service.py              # chunk_and_insert + get_pending_proposals
+│       ├── transcription/              # YouTube download → Whisper → pyannote → Gemini speaker map
+│       ├── news/
+│       │   ├── fetcher.py              # trafilatura.fetch_url + HTML cache
+│       │   ├── extractor.py            # trafilatura.extract (content, title, date)
+│       │   ├── preprocessor.py         # clean_content: encoding, URLs, boilerplate, tweets, refs
+│       │   ├── loader.py               # news/<slug>.json → news table (resolve candidate by name)
+│       │   └── service.py              # process_article(spec) orchestration
+│       ├── news_chunk/
+│       │   ├── chunker.py              # (reuses proposal_chunk.chunker)
+│       │   ├── vitaminize.py           # [Candidato]/[Medio]/Titular prefix added to each chunk
+│       │   ├── embedding.py            # MySQL → Qdrant (news_chunks collection)
+│       │   └── service.py              # chunk_and_insert + get_pending_news
+│       ├── document/
+│       │   ├── converter.py            # Docling PDF → structure-preserving Markdown
+│       │   ├── preprocessor.py         # Markdown cleanup
+│       │   ├── loader.py               # documents/<slug>.json → documents table
+│       │   └── service.py              # process_document(spec) orchestration
+│       ├── document_chunk/
+│       │   ├── chunker.py              # Structure-aware Markdown chunker (headings, tables, bullets)
+│       │   ├── embedding.py            # MySQL → Qdrant (document_chunks collection)
+│       │   └── service.py              # chunk_and_insert + get_pending_documents
+│       ├── interview/
+│       │   └── loader.py               # transcripts/<slug>.json → interviews + interview_segments
+│       └── interview_chunk/
+│           ├── chunker.py              # Conversation-aware chunker (groups turns, labels [speaker])
+│           ├── embedding.py            # MySQL → Qdrant (interview_chunks collection)
+│           └── service.py              # chunk_and_insert + get_pending_interview_ids
 ├── docker-compose.dev.yml              # Local Qdrant instance (ports 6333 REST, 6334 gRPC)
 ├── scripts/
-│   ├── rate_batch.py                   # Entry point: classify every pending proposal
-│   ├── chunk_proposals.py              # Entry point: split proposals into proposal_chunks rows
-│   └── embed_chunks.py                 # Entry point: embed chunks and upsert them into Qdrant
-├── reindex.py                          # Drop + rebuild the Qdrant collection (re-embed all chunks)
+│   ├── rate_batch.py                   # Classify every pending proposal
+│   ├── chunk_proposals.py              # Split proposals into proposal_chunks rows
+│   ├── embed_chunks.py                 # Embed proposal chunks and upsert them into Qdrant
+│   ├── transcribe_videos.py            # videos.yaml → transcripts/<slug>.json
+│   ├── extract_news.py                 # news.yaml → news/<slug>.json
+│   ├── load_news.py                    # news/<slug>.json → news table
+│   ├── chunk_news.py                   # Split news into news_chunks rows
+│   ├── embed_news.py                   # Embed news chunks → news_chunks collection
+│   ├── extract_documents.py            # documents.yaml → documents/<slug>.json (Docling)
+│   ├── load_documents.py               # documents/<slug>.json → documents table
+│   ├── chunk_documents.py              # Split documents into document_chunks rows
+│   ├── embed_documents.py              # Embed document chunks → document_chunks collection
+│   ├── load_interviews.py              # transcripts/<slug>.json → interviews + segments
+│   ├── chunk_interviews.py             # Group interview turns into interview_chunks rows
+│   ├── embed_interviews.py             # Embed interview chunks → interview_chunks collection
+│   ├── documents.yaml / documents.example.yaml  # Documents pipeline config (yaml gitignored)
+│   ├── news.yaml / news.example.yaml            # News pipeline config (yaml gitignored)
+│   └── videos.yaml / videos.example.yaml        # Transcription/interview config (yaml gitignored)
+├── reindex.py                          # Drop + rebuild the proposal_chunks Qdrant collection (re-embed all chunks)
 ├── main.py                             # Smoke test for the Gemini client
 ├── requirements.txt
 ├── .env.example
@@ -171,6 +215,46 @@ python -m scripts.embed_chunks                        # 3. Embed chunks and upse
 
 Step 4 matters because the API's BM25 index has no auto-invalidation: the API must be restarted for newly embedded chunks to be searchable lexically. Qdrant is queried directly so dense results pick them up immediately.
 
+### Content-source pipelines (news, documents, interviews)
+
+Beyond proposals, three more candidate content sources are ingested through their own `extract/load → chunk → embed` pipelines. They all mirror the proposals flow: an idempotent chunker writes `*_chunks` rows in MySQL, then an idempotent embedder upserts them into a dedicated Qdrant collection where the Qdrant point id equals the MySQL chunk id. Collection names live in [`app/core/qdrant_client.py`](app/core/qdrant_client.py): `proposal_chunks`, `news_chunks`, `document_chunks`, `interview_chunks`. The Core `Table` definitions for every new table were added to [`app/core/database.py`](app/core/database.py) (the canonical schema is still owned by the API's Alembic migrations).
+
+Run each pipeline's scripts in order:
+
+#### 1. News
+
+```
+extract_news → load_news → chunk_news → embed_news
+```
+
+1. **`extract_news`** — for each article in [`scripts/news.yaml`](scripts/news.example.yaml), fetches the page HTML with `trafilatura` (cached under `news_cache/`) and extracts clean content + title + date. The [`preprocessor`](app/domains/news/preprocessor.py) repairs encoding (`ftfy`), strips stray URLs, and additionally removes recurring publisher boilerplate (subscribe prompts, fact-check intros/outros), inline reference markers like `(1, 2, 3)`, embedded tweet/X footers and `@handles`, then collapses whitespace. Writes `news/<slug>.json` per candidate (now including `publishing_house`).
+2. **`load_news`** — joins `news.yaml` metadata with `news/<slug>.json` and inserts one row per article into the `news` table, resolving the candidate by name. Idempotent on `news.uuid`.
+3. **`chunk_news`** — splits `content_raw` with the shared paragraph-aware chunker and stores each chunk **vitaminized** ([`vitaminize`](app/domains/news_chunk/vitaminize.py)) with a `[Candidato: …] [Medio: …]. Titular: …. Contenido: …` prefix, so the value embedded later is exactly what lives in `news_chunks.content_chunk`.
+4. **`embed_news`** — embeds pending chunks and upserts them into the `news_chunks` Qdrant collection. Each point's payload carries `news_id`, `news_uuid`, `candidate_id`, `candidate_name`, `publishing_house`, `source_type`, and `content`.
+
+#### 2. Documents
+
+```
+extract_documents → load_documents → chunk_documents → embed_documents
+```
+
+1. **`extract_documents`** — for each PDF in [`scripts/documents.yaml`](scripts/documents.example.yaml) (copy the example to `documents.yaml`; it is gitignored), [Docling](https://docling-project.github.io/docling/) parses the PDF into structure-preserving Markdown (headings, paragraphs, lists, tables) via the new [`app/domains/document/`](app/domains/document) converter + preprocessor. Per-document fields include `type` (e.g. `legal_document` / `campaign_document`) and `url`. Markdown is cached under `document_cache/`; writes `documents/<slug>.json` per candidate.
+2. **`load_documents`** — inserts one row per PDF into the `documents` table (candidate resolved by name). Idempotent on `documents.uuid`.
+3. **`chunk_documents`** — uses the **structure-aware Markdown chunker** in [`app/domains/document_chunk/chunker.py`](app/domains/document_chunk/chunker.py): it splits at heading/section boundaries (a chunk never spans two sections) and prefixes each chunk with its heading-path context, keeps tables (`| ... |` blocks) and bullet items whole, and groups continuous paragraphs up to a target size (windowing a single oversized paragraph with overlap). Defaults: `TARGET_WORDS=200`, `MAX_WORDS=400`, `OVERLAP_WORDS=30`.
+4. **`embed_documents`** — embeds pending chunks into the `document_chunks` Qdrant collection. Payload carries `document_id`, `document_uuid`, `candidate_id`, `candidate_name`, `source_type`, `type`, `title`, `publishing_house`, `url`, and `content`.
+
+#### 3. Interviews
+
+```
+(transcribe_videos →) load_interviews → chunk_interviews → embed_interviews
+```
+
+1. **`load_interviews`** — reads `transcripts/<slug>.json` (produced by the existing transcription pipeline, `scripts/transcribe_videos.py`) and inserts **one `interviews` row per video**, plus its `interview_segments` — consecutive same-speaker turns are merged into a single segment (keeping the first start_time, the last end_time, and concatenating text). Transcript `published_date` values are `YYYY-DD-MM` (day before month) and parsed accordingly. Idempotent on `interviews.uuid` (== `video_id`).
+2. **`chunk_interviews`** — the conversation-aware chunker in [`app/domains/interview_chunk/chunker.py`](app/domains/interview_chunk/chunker.py) groups consecutive turns into chunks of ~target size (so a question and its answer stay together), labels each turn `[speaker]`, and tracks the chunk's `start_time` / `end_time`. A single oversized turn is windowed with overlap. Defaults: `TARGET_WORDS=200`, `MAX_WORDS=400`, `OVERLAP_WORDS=30`.
+3. **`embed_interviews`** — embeds pending chunks into the `interview_chunks` Qdrant collection. Payload carries `interview_id`, `interview_uuid`, `candidate_id`, `candidate_name`, `source_type`, `format_type`, `title`, `media_outlet`, `url_video_audio`, `start_time`, `end_time`, and `content`.
+
+> The schema for all these tables is **owned by the API**. Apply the migrations with `alembic upgrade head` from `api/` (against the shared MySQL DB) before running the load/chunk steps — `analysis/` never runs Alembic.
+
 ---
 
 ## 📦 Setup
@@ -180,7 +264,9 @@ Step 4 matters because the API's BM25 index has no auto-invalidation: the API mu
 - **Python 3.12**
 - A running **MySQL 8** instance with the Elegio schema applied. The easiest path is to start the API's bundled docker-compose (see [api/README.md → Setup](../api/README.md#-setup)) and run `alembic upgrade head` from `api/`. `analysis/` will read and write the same database.
 - A **Google AI Studio API key** for Gemini (`GEMINI_API_KEY`).
-- **Docker** and **Docker Compose** to run the local **Qdrant** instance (only needed for `embed_chunks.py` and for the API's search endpoint — not required by `rate_batch.py`).
+- **Docker** and **Docker Compose** to run the local **Qdrant** instance (needed for any `embed_*` script and for the API's search endpoint — not required by `rate_batch.py`).
+- **ffmpeg** on `$PATH` — required only by the transcription pipeline (`transcribe_videos.py`).
+- The **documents** pipeline pulls **Docling** (and `transformers`/`torchvision`); the requirements file pins `transformers<5` and a CPU `torchvision` to stay compatible with the `torch 2.4.1` pyannote requires. See [requirements.txt](requirements.txt) for the rationale.
 
 ### 1. Install dependencies
 
@@ -359,15 +445,51 @@ End-to-end pipeline per article listed in [`scripts/news.yaml`](scripts/news.exa
 
 1. **Fetch** the page HTML with [`trafilatura.fetch_url`](https://trafilatura.readthedocs.io). Raw HTML is cached at `news_cache/<new_id>.html` so the extractor can be improved and re-run without re-hitting the source.
 2. **Extract** clean article content with `trafilatura.extract` (precision-favored, no comments/tables/links) plus title and publication date from `extract_metadata`. This is the library that handles ads, cookie banners, sidebars, and paywall stubs.
-3. **Write** one JSON per candidate at `news/<slug>.json` (a list of article objects with the schema documented in [scripts/news.example.yaml](scripts/news.example.yaml)). Per-article output is also cached at `news/_articles/<new_id>.json`, so re-runs skip URLs that already succeeded — delete a cache file to redo just that article.
+3. **Preprocess** ([`preprocessor.clean_content`](app/domains/news/preprocessor.py)): repair encoding with `ftfy`, strip stray URLs, and remove recurring publisher boilerplate (subscribe prompts, fact-check bot intros/outros), inline reference markers like `(1, 2, 3)`, embedded tweet/X footers and standalone `@handles`, then collapse whitespace.
+4. **Write** one JSON per candidate at `news/<slug>.json` (a list of article objects with the schema documented in [scripts/news.example.yaml](scripts/news.example.yaml)), now including `publishing_house`. Per-article output is also cached at `news/_articles/<new_id>.json`, so re-runs skip URLs that already succeeded — delete a cache file to redo just that article. (Older cached articles missing `publishing_house` are backfilled in place on the next run.)
 
-`publishing_house` and `authors` from the YAML are used to keep track of where each article came from but are not copied into the per-article output (it follows the schema you specified). Add them to the spec if you want them in the output JSON too.
+### Loading, chunking & embedding news
+
+```bash
+python -m scripts.load_news        # news/<slug>.json → news table (idempotent on news.uuid)
+python -m scripts.chunk_news       # news → news_chunks (vitaminized chunks)
+python -m scripts.embed_news       # news_chunks → Qdrant news_chunks collection
+```
+
+`load_news` joins `news.yaml` metadata with the extracted JSON and resolves each candidate by name (its `presidential_candidate` value). `chunk_news` reuses the proposal paragraph chunker and stores each chunk **vitaminized** with a `[Candidato]/[Medio]/Titular` prefix. `embed_news` is incremental and idempotent (Qdrant point id == MySQL chunk id), like `embed_chunks`.
+
+### Documents pipeline — `scripts/extract_documents.py`
+
+```bash
+python -m scripts.extract_documents
+python -m scripts.load_documents
+python -m scripts.chunk_documents
+python -m scripts.embed_documents
+```
+
+For each PDF in [`scripts/documents.yaml`](scripts/documents.example.yaml) (copy the example to `documents.yaml`; gitignored), **Docling** parses the PDF into structure-preserving Markdown (headings, paragraphs, lists, tables). Each per-document spec carries `type` (e.g. `legal_document` / `campaign_document`) and `url`; most metadata is optional. Raw Markdown is cached at `document_cache/<doc_id>.md` and per-document JSON at `documents/_files/<doc_id>.json`, so re-runs skip PDFs that already succeeded.
+
+`chunk_documents` uses a **structure-aware Markdown chunker** ([`document_chunk/chunker.py`](app/domains/document_chunk/chunker.py)) that splits at heading/section boundaries (prefixing each chunk with its heading-path context), keeps tables and bullet items whole, and groups paragraphs up to a target size. `load_documents` / `embed_documents` follow the same idempotency rules as the news pipeline.
+
+### Interviews pipeline — `scripts/load_interviews.py`
+
+```bash
+python -m scripts.load_interviews
+python -m scripts.chunk_interviews
+python -m scripts.embed_interviews
+```
+
+Reads `transcripts/<slug>.json` (produced by [`scripts.transcribe_videos`](#transcribing-youtube-videos--scriptstranscribe_videospy)) and inserts **one `interviews` row per video**. Consecutive same-speaker segments are merged into single `interview_segments` (first start_time, last end_time, concatenated text). Transcript dates are `YYYY-DD-MM` (day before month) and parsed accordingly. Idempotent on `interviews.uuid` (== `video_id`).
+
+`chunk_interviews` groups consecutive turns into conversation-aware chunks (labelling each turn `[speaker]` and tracking the chunk's time span), so a question and its answer stay together. `embed_interviews` upserts into the `interview_chunks` Qdrant collection, idempotent on the shared chunk id.
+
+> **Apply migrations first.** The `news`, `documents`, `interviews` tables (and their `*_chunks` / `interview_segments` tables) are owned by the API. Run `alembic upgrade head` from `api/` against the shared DB before the load/chunk steps — `analysis/` never runs Alembic.
 
 ---
 
 ## 🗃 Data model
 
-`analysis/` reads from `categories` + `proposals` and writes to `postures`. The columns are mirrored from the API's models in [`app/core/database.py`](app/core/database.py); the canonical definitions live in the API's SQLAlchemy models and Alembic migrations.
+`analysis/` reads from `categories` + `proposals` and writes to `postures`. It also writes the candidate content sources — `news`, `documents`, `interviews` — and their chunk/segment tables. The columns are mirrored from the API's models in [`app/core/database.py`](app/core/database.py); the canonical definitions live in the API's SQLAlchemy models and Alembic migrations.
 
 ### Read
 
@@ -376,8 +498,25 @@ End-to-end pipeline per article listed in [`scripts/news.yaml`](scripts/news.exa
 | `categories`       | `id`, `name`, `weight`                                                                    |
 | `proposals`        | `id`, `title`, `summary`, `full_text`, `category_id`, `candidate_id`                      |
 | `proposal_chunks`  | `id`, `proposal_id`, `chunk_index`, `total_chunks`, `content`, `deleted_at`               |
+| `candidates`       | `id`, `presidential_candidate`, `deleted_at` — to resolve a candidate by name             |
 
 The rating query joins `proposals → categories` and left-joins `postures` to pick rows where no posture exists. The chunking query left-joins `proposal_chunks` to pick proposals with no chunks yet. The embedding query joins `proposal_chunks → proposals` so each Qdrant point's payload can carry the `category_id` and `candidate_id` used by the API's filtered search.
+
+### Content-source tables
+
+The news/documents/interviews pipelines write to the tables below. Each parent table carries a `uuid` (the idempotency key and Qdrant-side reference), a `candidate_id`, and a `source_type`; each `*_chunks` table carries `chunk_index`, `total_chunks`, and `content_chunk`. The chunk and segment tables use `BigInteger` ids and a parent FK with `ON DELETE CASCADE`. See [api/README.md → Content-source tables](../api/README.md#-content-source-tables) for the full column reference.
+
+| Table                | Written by                          | Notes                                                              |
+| -------------------- | ----------------------------------- | ------------------------------------------------------------------ |
+| `news`               | `load_news`                         | one row per article; `content_raw` holds the cleaned full text     |
+| `news_chunks`        | `chunk_news`                        | `content_chunk` is the **vitaminized** chunk text                  |
+| `documents`          | `load_documents`                    | one row per PDF; `content` holds the extracted Markdown            |
+| `document_chunks`    | `chunk_documents`                   | structure-aware Markdown chunks                                    |
+| `interviews`         | `load_interviews`                   | one row per video                                                  |
+| `interview_segments` | `load_interviews`                   | merged per-speaker turns (`start_time`/`end_time`/`speaker`/`text_segment`) |
+| `interview_chunks`   | `chunk_interviews`                  | conversation-aware chunks with a time span                        |
+
+The `embed_*` scripts do **not** write to MySQL — they only upsert into the matching Qdrant collection, with the point id equal to the MySQL chunk id.
 
 ### Write
 
@@ -513,10 +652,27 @@ python -m scripts.rate_batch
 docker compose -f docker-compose.dev.yml up -d
 docker compose -f docker-compose.dev.yml down
 
-# Chunking + embedding pipelines
+# Proposals: chunking + embedding pipeline
 python -m scripts.chunk_proposals
 python -m scripts.embed_chunks
-python reindex.py            # drop + rebuild the Qdrant collection (after a model/dim change)
+python reindex.py            # drop + rebuild the proposal_chunks collection (after a model/dim change)
+
+# News pipeline
+python -m scripts.extract_news
+python -m scripts.load_news
+python -m scripts.chunk_news
+python -m scripts.embed_news
+
+# Documents pipeline (Docling)
+python -m scripts.extract_documents
+python -m scripts.load_documents
+python -m scripts.chunk_documents
+python -m scripts.embed_documents
+
+# Interviews pipeline (after scripts.transcribe_videos)
+python -m scripts.load_interviews
+python -m scripts.chunk_interviews
+python -m scripts.embed_interviews
 ```
 
 ---
