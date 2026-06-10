@@ -2,7 +2,9 @@
 per-step caching so a failure in any expensive step does not waste the others.
 
 Pipeline:
-    yt-dlp  →  ffmpeg (wav 16 kHz mono + Whisper-sized mp3 chunks)
+    yt-dlp  →  ffmpeg (wav 16 kHz mono + silence-trimmed Whisper mp3 chunks;
+               long silences are never sent to Whisper, but each chunk keeps
+               its absolute offset so timestamps stay on the video's timeline)
             →  OpenAI Whisper (transcript segments)
             →  pyannote.audio (diarization turns)
             →  align transcript ↔ diarization
