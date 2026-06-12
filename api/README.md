@@ -62,29 +62,34 @@ A typical client integration looks like this:
      │ ──────────────────────────────────────────────────────► │
      │ ◄────────────────────────────────────────────────────── │  list of tests
      │                                                         │
-     │  2. POST /api/v1/test-attempts/initialize { test_id }   │
-     │ ──────────────────────────────────────────────────────► │  creates Visitor + Session + TestAttempt
-     │ ◄────────────────────────────────────────────────────── │  returns { test_attempt, visitor_id, token }
+     │  2. POST /api/v1/auth/token { visitor, session }        │
+     │ ──────────────────────────────────────────────────────► │  creates Visitor + Session
+     │ ◄────────────────────────────────────────────────────── │  returns { token, visitor_id }
      │                                                         │
-     │  3. GET /api/v1/questions/by-test/{test_id}             │
+     │  3. POST /api/v1/test-attempts/initialize { test_id }   │
+     │                                   (Bearer <token>)      │
+     │ ──────────────────────────────────────────────────────► │  creates TestAttempt for the visitor
+     │ ◄────────────────────────────────────────────────────── │  returns the test attempt
+     │                                                         │
+     │  4. GET /api/v1/questions/by-test/{test_id}             │
      │ ──────────────────────────────────────────────────────► │
      │ ◄────────────────────────────────────────────────────── │  ordered questions + categories
      │                                                         │
-     │  4. GET /api/v1/response-options/question/{id}          │
+     │  5. GET /api/v1/response-options/question/{id}          │
      │ ──────────────────────────────────────────────────────► │
      │ ◄────────────────────────────────────────────────────── │  options for the current question
      │                                                         │
-     │  5. POST /api/v1/answers          (Bearer <token>)      │
+     │  6. POST /api/v1/answers          (Bearer <token>)      │
      │ ──────────────────────────────────────────────────────► │  loops over the questions
      │ ◄────────────────────────────────────────────────────── │  { answer, test_completed, status }
      │                                                         │
-     │  6. GET /api/v1/answers/affinity  (Bearer <token>)      │
+     │  7. GET /api/v1/answers/affinity  (Bearer <token>)      │
      │ ──────────────────────────────────────────────────────► │  computes weighted Manhattan affinity
      │ ◄────────────────────────────────────────────────────── │  ranked candidates with affinity score
      │                                                         │
 ```
 
-Steps 1, 3, and 4 are public. Steps 2, 5, and 6 require the JWT issued in step 2 to be sent as `Authorization: Bearer <token>`. The test attempt auto-completes on step 5 once every active question of the test has been answered (see [Answers](#answers)).
+Steps 1, 2, 4, and 5 are public. Steps 3, 6, and 7 require the JWT issued in step 2 to be sent as `Authorization: Bearer <token>`. The test attempt auto-completes on step 6 once every active question of the test has been answered (see [Answers](#answers)).
 
 ---
 
@@ -268,28 +273,27 @@ Loaded from `api/.env` via [`Settings`](app/core/config.py) (pydantic-settings).
 
 ## 🔐 Authentication
 
-Authentication is **session-scoped**, not user-scoped: there are no user accounts. Instead, a single token represents one anonymous test attempt.
+Authentication is **visitor-scoped**, not user-scoped: there are no user accounts. Instead, a single token represents one anonymous visitor, independently of any test.
 
 ### Issuing a token
 
-A token is issued by `POST /api/v1/test-attempts/initialize` ([routes](app/domains/test_attempt/routes.py), [service](app/domains/test_attempt/service.py)). The handler:
+A token is issued by `POST /api/v1/auth/token` ([routes](app/domains/auth/routes.py), [service](app/domains/auth/service.py)). The handler:
 
-1. Validates that the requested `test_id` exists.
-2. Creates a new `Visitor` with a fresh `visitor_uid` (UUID hex).
-3. Creates the first `Session` for that visitor.
-4. Creates a `TestAttempt` (`uuid` = UUIDv4, `status = IN_PROGRESS`).
-5. Signs a JWT (HS256) with the following payload:
+1. Creates a new `Visitor` with a fresh `visitor_uid` (UUID hex) from the `visitor` payload.
+2. Creates the first `Session` for that visitor from the `session` payload.
+3. Signs a JWT (HS256) with the following payload:
 
 ```json
 {
-  "test_attempt_uuid": "<uuid>",
   "visitor_id": 123,
-  "test_id": 1,
+  "session_id": 456,
   "exp": 1735689600
 }
 ```
 
-The token is returned in the response body as `token`.
+The token is returned in the response body as `token`, alongside `visitor_id`.
+
+Test attempts are created afterwards with `POST /api/v1/test-attempts/initialize` (private), which reads `visitor_id` from the token and creates a `TestAttempt` (`uuid` = UUIDv4, `status = IN_PROGRESS`) for the requested `test_id`. Endpoints that operate on "the current attempt" (`GET /api/v1/test-attempts`, the answers endpoints) resolve the visitor's **most recent** non-deleted attempt.
 
 ### Using a token
 
@@ -376,6 +380,73 @@ Response `200 OK`:
 
 ---
 
+### Auth
+
+[routes.py](app/domains/auth/routes.py) · [service.py](app/domains/auth/service.py)
+
+Issues the anonymous visitor token used by every protected endpoint. See [Authentication](#-authentication).
+
+#### `POST /api/v1/auth/token`
+
+Bootstrap endpoint. Creates `Visitor` + `Session` and returns a JWT bound to that visitor. **This is the entry point for any client that needs to call protected endpoints.**
+
+- **Auth**: none
+- **Rate limit**: `100/minute`
+- **Status**: `201 Created`
+
+Request body — [`AuthTokenRequest`](app/domains/auth/schemas.py):
+
+```json
+{
+  "visitor": {
+    "browser_name": "Chrome",
+    "browser_version": "120.0.0",
+    "os_name": "Windows",
+    "os_version": "11",
+    "device_type": "desktop",
+    "is_mobile": false,
+    "is_bot": false,
+    "screen_width": 1920,
+    "screen_height": 1080,
+    "primary_language": "es-PE",
+    "timezone": "America/Lima",
+    "consent_given": true,
+    "consent_at": "2026-05-02T12:00:00",
+    "consent_version": "1.0"
+  },
+  "session": {
+    "ip_address": "200.10.20.30",
+    "country_code": "PE",
+    "city": "Lima",
+    "viewport_width": 1440,
+    "viewport_height": 900,
+    "referer": "https://google.com",
+    "utm_source": "twitter",
+    "utm_campaign": "launch"
+  }
+}
+```
+
+The `visitor` and `session` schemas accept many more optional fields (device hardware, geo, UTM tags, consent metadata). See [visitor/schemas.py](app/domains/visitor/schemas.py) for the full list. Both `visitor.is_bot` and `session.is_vpn` / `is_proxy` / `is_datacenter` default to `false`. `session` is itself optional and defaults to an empty object.
+
+Response `201 Created`:
+
+```json
+{
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "visitor_id": 17
+}
+```
+
+Errors:
+
+| Status | When                                |
+| ------ | ----------------------------------- |
+| `400`  | Validation failed (Pydantic)        |
+| `429`  | Rate limit exceeded                 |
+
+---
+
 ### Tests
 
 [routes.py](app/domains/test/routes.py) · [service.py](app/domains/test/service.py) · [models.py](app/domains/test/models.py)
@@ -418,68 +489,36 @@ Errors: `429 Too Many Requests`.
 
 [routes.py](app/domains/test_attempt/routes.py) · [service.py](app/domains/test_attempt/service.py) · [models.py](app/domains/test_attempt/models.py)
 
-A `TestAttempt` is a single user's run through a test. It owns a `uuid`, a `status` (`in_progress`, `completed`, `abandoned`, `timed_out`), and timestamps. The `uuid` is what the JWT carries.
+A `TestAttempt` is a single user's run through a test. It owns a `uuid`, a `status` (`in_progress`, `completed`, `abandoned`, `timed_out`), and timestamps. Attempts belong to the visitor identified by the JWT; endpoints that need "the current attempt" resolve the visitor's most recent non-deleted one.
 
 #### `POST /api/v1/test-attempts/initialize`
 
-Bootstrap endpoint. Creates `Visitor` + `Session` + `TestAttempt` and returns a JWT bound to that attempt. **This is the entry point for any client that needs to call protected endpoints.**
+Creates a `TestAttempt` for the requested test, owned by the visitor in the bearer token (issued by [`POST /api/v1/auth/token`](#post-apiv1authtoken)).
 
-- **Auth**: none
-- **Rate limit**: `100/minute`
+- **Auth**: required
+- **Rate limit**: `500/minute`
 - **Status**: `201 Created`
 
 Request body — [`TestAttemptInitialize`](app/domains/test_attempt/schemas.py):
 
 ```json
 {
-  "test_id": 1,
-  "visitor": {
-    "browser_name": "Chrome",
-    "browser_version": "120.0.0",
-    "os_name": "Windows",
-    "os_version": "11",
-    "device_type": "desktop",
-    "is_mobile": false,
-    "is_bot": false,
-    "screen_width": 1920,
-    "screen_height": 1080,
-    "primary_language": "es-PE",
-    "timezone": "America/Lima",
-    "consent_given": true,
-    "consent_at": "2026-05-02T12:00:00",
-    "consent_version": "1.0"
-  },
-  "session": {
-    "ip_address": "200.10.20.30",
-    "country_code": "PE",
-    "city": "Lima",
-    "viewport_width": 1440,
-    "viewport_height": 900,
-    "referer": "https://google.com",
-    "utm_source": "twitter",
-    "utm_campaign": "launch"
-  }
+  "test_id": 1
 }
 ```
-
-The `visitor` and `session` schemas accept many more optional fields (device hardware, geo, UTM tags, consent metadata). See [visitor/schemas.py](app/domains/visitor/schemas.py) for the full list. Both `visitor.is_bot` and `session.is_vpn` / `is_proxy` / `is_datacenter` default to `false`. `session` is itself optional and defaults to an empty object.
 
 Response `201 Created`:
 
 ```json
 {
-  "test_attempt": {
-    "id": 42,
-    "uuid": "9f1c4b0e-2d48-4e85-9a1a-72ae8b1a55b3",
-    "visitor_id": 17,
-    "test_id": 1,
-    "status": "in_progress",
-    "started_at": "2026-05-02T12:00:00",
-    "finished_at": null,
-    "created_at": "2026-05-02T12:00:00"
-  },
+  "id": 42,
+  "uuid": "9f1c4b0e-2d48-4e85-9a1a-72ae8b1a55b3",
   "visitor_id": 17,
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+  "test_id": 1,
+  "status": "in_progress",
+  "started_at": "2026-05-02T12:00:00",
+  "finished_at": null,
+  "created_at": "2026-05-02T12:00:00"
 }
 ```
 
@@ -488,24 +527,25 @@ Errors:
 | Status | When                                |
 | ------ | ----------------------------------- |
 | `400`  | Validation failed (Pydantic)        |
-| `404`  | `test_id` does not exist or is soft-deleted |
+| `401`  | Missing / expired / invalid token, or token has no `visitor_id` |
+| `404`  | `test_id` does not exist or is soft-deleted, or the token's visitor no longer exists |
 | `429`  | Rate limit exceeded                 |
 
 #### `GET /api/v1/test-attempts`
 
-Returns the test attempt embedded in the bearer token. Useful to check current status / `finished_at`.
+Returns the current (most recent) test attempt of the visitor in the bearer token. Useful to check current status / `finished_at`.
 
 - **Auth**: required
 - **Rate limit**: `500/minute`
 
-Response `200 OK` — same shape as `test_attempt` above.
+Response `200 OK` — same shape as the initialize response above.
 
 Errors:
 
 | Status | When                                                  |
 | ------ | ----------------------------------------------------- |
-| `401`  | Missing / expired / invalid token, or token has no `test_attempt_uuid` |
-| `404`  | The attempt referenced by the token no longer exists  |
+| `401`  | Missing / expired / invalid token, or token has no `visitor_id` |
+| `404`  | The visitor has no test attempts                      |
 | `429`  | Rate limit exceeded                                   |
 
 ---
@@ -885,7 +925,7 @@ Errors: `404` if the question does not exist or is soft-deleted; `422` invalid p
 
 [routes.py](app/domains/event/routes.py) · [service.py](app/domains/event/service.py) · [models.py](app/domains/event/models.py)
 
-Analytics events tied to the test attempt's visitor + session. The `visitor_id` and `session_id` are derived server-side from the JWT's `test_attempt_uuid` — clients never send them. The session resolved is the **most recent** session of the visitor (ordered by `started_at DESC`).
+Analytics events tied to the visitor + session. The `visitor_id` is read from the JWT and the `session_id` is derived server-side — clients never send them. The session resolved is the **most recent** session of the visitor (ordered by `started_at DESC`).
 
 #### `POST /api/v1/events`
 
@@ -953,8 +993,8 @@ Errors:
 
 | Status | When                                                                       |
 | ------ | -------------------------------------------------------------------------- |
-| `401`  | Missing / invalid token, or token has no `test_attempt_uuid`               |
-| `404`  | Test attempt not found, or visitor has no session                          |
+| `401`  | Missing / invalid token, or token has no `visitor_id`                      |
+| `404`  | The visitor has no session                                                  |
 | `422`  | Body fails validation                                                       |
 | `429`  | Rate limit exceeded                                                         |
 
@@ -964,7 +1004,7 @@ Errors:
 
 [routes.py](app/domains/answer/routes.py) · [service.py](app/domains/answer/service.py) · [models.py](app/domains/answer/models.py)
 
-Answers belong to the `TestAttempt` referenced by the JWT. Creating an answer also runs the **auto-completion** logic: when the count of distinct answered questions for the attempt reaches the count of active questions in the test, the attempt is transitioned to `status = COMPLETED` and `finished_at` is stamped.
+Answers belong to the **current test attempt** of the visitor in the JWT (the visitor's most recent non-deleted attempt). Creating an answer also runs the **auto-completion** logic: when the count of distinct answered questions for the attempt reaches the count of active questions in the test, the attempt is transitioned to `status = COMPLETED` and `finished_at` is stamped.
 
 #### `POST /api/v1/answers`
 
@@ -996,8 +1036,8 @@ Field rules:
 
 Service-side validations:
 
-- Test attempt must exist and have `status = IN_PROGRESS`.
-- Question must exist and belong to the test in the token.
+- The visitor must have a current test attempt with `status = IN_PROGRESS`.
+- Question must exist and belong to the attempt's test.
 - If `response_option_id` is set, it must exist and belong to `question_id`.
 
 Response `201 Created`:
@@ -1058,7 +1098,7 @@ Request body — [`AnswerUpdate`](app/domains/answer/schemas.py):
 }
 ```
 
-Validations: same as `POST` for the fields provided. The attempt must still be `IN_PROGRESS`, and the answer must belong to the attempt referenced by the token.
+Validations: same as `POST` for the fields provided. The visitor's current attempt must still be `IN_PROGRESS`, and the answer must belong to it.
 
 Response `200 OK`: the updated `AnswerRead` shape.
 
@@ -1074,7 +1114,7 @@ Errors:
 
 #### `GET /api/v1/answers`
 
-List answers belonging to the current test attempt (derived from the JWT's `test_attempt_uuid` + `test_id`). Ordered by `created_at DESC, id DESC`.
+List answers belonging to the current test attempt (the most recent attempt of the JWT's `visitor_id`). Ordered by `created_at DESC, id DESC`.
 
 - **Auth**: required
 - **Rate limit**: `500/minute`
@@ -1132,7 +1172,7 @@ The response shape — defined by [`AffinityResponse`](app/domains/answer/schema
 | User has answered, but no candidate has postures in those categories   | populated       | `[]`         |
 | Both vectors overlap on ≥ 1 category                                   | populated       | populated    |
 
-- **Auth**: required (uses `test_attempt_uuid` from the JWT, like the other answer endpoints)
+- **Auth**: required (uses `visitor_id` from the JWT to resolve the current attempt, like the other answer endpoints)
 - **Rate limit**: `500/minute`
 
 Response `200 OK`:
