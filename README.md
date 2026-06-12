@@ -10,6 +10,7 @@ Elegio is a non-partisan platform designed to help voters make informed decision
 - Filtering candidates by political positions
 - Comparing candidates side by side
 - Understanding the impact of proposals through AI analysis
+- Chatting with **Emma**, a RAG assistant grounded on the candidates' proposals, documents, interviews and news
 
 ## 🏗️ Architecture
 
@@ -40,6 +41,7 @@ elegio/
 - **Qdrant** - Vector database (cosine similarity) with one collection per content type: `proposal_chunks`, `news_chunks`, `document_chunks`, `interview_chunks`
 - **rank-bm25** - In-memory lexical index fused with the dense results via Reciprocal Rank Fusion
 - **Content sources** - RAG ingestion pipelines for proposals, news (trafilatura), documents (Docling PDF → Markdown), and interviews (Whisper + pyannote transcripts)
+- **LangChain + Gemini chat** - Emma, the SSE-streamed chatbot with summarizing conversational memory, retrieving from all four Qdrant collections
 
 ## 📦 Installation
 
@@ -68,7 +70,7 @@ JWT_SECRET_KEY=change-me-in-development
 GEMINI_API_KEY=your-gemini-api-key-here
 ```
 
-`GEMINI_API_KEY` is required by the `/search/proposals` endpoint, which embeds the query with `gemini-embedding-001`.
+`GEMINI_API_KEY` is required by the `/search/proposals` endpoint, which embeds the query with `gemini-embedding-001`, and by the Emma chatbot (`/chats`), which also uses it to run `gemini-2.5-flash` (configurable via `GEMINI_CHAT_MODEL`).
 
 Start the local database:
 
