@@ -23,10 +23,9 @@ export type TestAttempt = {
   created_at: string
 }
 
-export type InitializeTestResponse = {
-  test_attempt: TestAttempt
-  visitor_id: number
+export type AuthTokenResponse = {
   token: string
+  visitor_id: number
 }
 
 export type Question = {

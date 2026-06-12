@@ -3,11 +3,12 @@ import type {
   AffinityResponse,
   AnswerCreateResponse,
   AnswerListResponse,
-  InitializeTestResponse,
+  AuthTokenResponse,
   Question,
   QuestionListResponse,
   ResponseOption,
   ResponseOptionListResponse,
+  TestAttempt,
   TestListResponse,
 } from '../types'
 
@@ -25,28 +26,40 @@ export async function getAvailableTests(): Promise<TestListResponse> {
   }
 }
 
-export async function initializeTestAttempt(testId: number): Promise<InitializeTestResponse> {
+export async function createAuthToken(): Promise<string> {
   try {
-    const response = await apiClient.post<InitializeTestResponse>(
-      '/api/v1/test-attempts/initialize',
-      {
-        test_id: testId,
-        visitor: {
-          primary_language: navigator.language,
-          languages: navigator.languages ? Array.from(navigator.languages) : undefined,
-          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-          consent_given: true,
-          screen_width: window.screen.width,
-          screen_height: window.screen.height,
-          pixel_ratio: window.devicePixelRatio,
-        },
-        session: {
-          landing_page: window.location.pathname,
-          referer: document.referrer || undefined,
-          viewport_width: window.innerWidth,
-          viewport_height: window.innerHeight,
-        },
+    const response = await apiClient.post<AuthTokenResponse>('/api/v1/auth/token', {
+      visitor: {
+        primary_language: navigator.language,
+        languages: navigator.languages ? Array.from(navigator.languages) : undefined,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        consent_given: true,
+        screen_width: window.screen.width,
+        screen_height: window.screen.height,
+        pixel_ratio: window.devicePixelRatio,
       },
+      session: {
+        landing_page: window.location.pathname,
+        referer: document.referrer || undefined,
+        viewport_width: window.innerWidth,
+        viewport_height: window.innerHeight,
+      },
+    })
+    return response.data.token
+  } catch (error) {
+    throw new Error(TEST_ERROR_MESSAGE, { cause: error })
+  }
+}
+
+export async function initializeTestAttempt(
+  testId: number,
+  token: string,
+): Promise<TestAttempt> {
+  try {
+    const response = await apiClient.post<TestAttempt>(
+      '/api/v1/test-attempts/initialize',
+      { test_id: testId },
+      { headers: { Authorization: `Bearer ${token}` } },
     )
     return response.data
   } catch (error) {
@@ -54,9 +67,9 @@ export async function initializeTestAttempt(testId: number): Promise<InitializeT
   }
 }
 
-export async function getCurrentTestAttempt(token: string): Promise<InitializeTestResponse['test_attempt']> {
+export async function getCurrentTestAttempt(token: string): Promise<TestAttempt> {
   try {
-    const response = await apiClient.get<InitializeTestResponse['test_attempt']>(
+    const response = await apiClient.get<TestAttempt>(
       '/api/v1/test-attempts',
       { headers: { Authorization: `Bearer ${token}` } },
     )

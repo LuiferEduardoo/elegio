@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   createAnswer,
+  createAuthToken,
   getAffinity,
   getAnswers,
   getAvailableTests,
@@ -164,14 +165,15 @@ export function useTestFlow() {
     setCurrentIndex(0)
 
     try {
-      const [attempt, loadedQuestions] = await Promise.all([
-        initializeTestAttempt(activeTest.id),
+      const authToken = await createAuthToken()
+      const [, loadedQuestions] = await Promise.all([
+        initializeTestAttempt(activeTest.id, authToken),
         getQuestionsByTest(activeTest.id),
       ])
       const questionOptions = await loadQuestionOptions(loadedQuestions)
 
-      setTestTokenCookie(attempt.token)
-      setToken(attempt.token)
+      setTestTokenCookie(authToken)
+      setToken(authToken)
       setQuestions(loadedQuestions)
       setOptionsByQuestionId(questionOptions)
       setQuestionStartedAt(Date.now())
