@@ -14,6 +14,7 @@ from app.core.database import Base
 from app.domains.answer import models as _answer_models  # noqa: F401
 from app.domains.candidate import models as _candidate_models  # noqa: F401
 from app.domains.category import models as _category_models  # noqa: F401
+from app.domains.chat import models as _chat_models  # noqa: F401
 from app.domains.document import models as _document_models  # noqa: F401
 from app.domains.document_chunk import models as _document_chunk_models  # noqa: F401
 from app.domains.event import models as _event_models  # noqa: F401
