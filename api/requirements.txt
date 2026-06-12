@@ -13,3 +13,6 @@ slowapi==0.1.9
 google-genai==1.16.1
 qdrant-client==1.13.2
 rank-bm25==0.2.2
+langchain-core==1.4.6
+langchain-google-genai==4.2.5
+sse-starlette==2.4.1
