@@ -35,6 +35,12 @@ class Chat(Base, TimestampMixin):
     )
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
+    # Conversational memory: old messages get folded into `summary` once the
+    # history exceeds the token budget; `last_summarized_message_id` marks how
+    # far the summary reaches, so only newer messages are sent verbatim.
+    summary: Mapped[str | None] = mapped_column(Text)
+    last_summarized_message_id: Mapped[int | None] = mapped_column(Integer)
+
     visitor: Mapped[Visitor] = relationship()
     messages: Mapped[list["ChatMessage"]] = relationship(back_populates="chat")
 
