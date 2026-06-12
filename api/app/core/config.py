@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     QDRANT_URL: str = "http://localhost:6333"
     QDRANT_API_KEY: str = ""
     GEMINI_API_KEY: str = ""
+    GEMINI_CHAT_MODEL: str = "gemini-2.5-flash"
     EAGER_LOAD_SEARCH_ON_STARTUP: bool = False
 
     CORS_ORIGINS: str = (
