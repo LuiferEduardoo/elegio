@@ -26,6 +26,7 @@ Backend FastAPI for **Elegio**, an open-source platform that helps voters choose
   - [Events](#events)
   - [Answers](#answers)
   - [Search](#search)
+  - [Chats](#chats)
 - [Content-source tables](#-content-source-tables)
 - [Conventions](#-conventions)
 - [Common commands](#-common-commands)
@@ -41,12 +42,13 @@ Elegio is an open-source platform that helps voters identify the presidential ca
 2. Recording the user's **answers** during a single **test attempt**.
 3. Comparing the user's positions against each candidate's **proposals**, **postures**, and full **government plan**.
 4. Capturing anonymized **visitor**, **session**, and **event** signals to improve the experience.
+5. Answering free-form questions through **Emma**, a RAG chatbot grounded on the indexed proposals, documents, interviews and news.
 
 This API exposes the REST endpoints behind that flow:
 
 - Public, read-only endpoints for the catalogue (tests, questions, candidates, proposals, government plans).
-- A bootstrap endpoint that creates a `Visitor` + `Session` + `TestAttempt` and returns a JWT scoped to the attempt.
-- Authenticated endpoints for writing answers, tracking events, and computing candidate affinity for that attempt.
+- A bootstrap endpoint (`/auth/token`) that creates a `Visitor` + `Session` and returns a JWT scoped to that visitor.
+- Authenticated endpoints for creating test attempts, writing answers, tracking events, computing candidate affinity, and chatting with Emma over SSE.
 
 ---
 
@@ -91,6 +93,8 @@ A typical client integration looks like this:
 
 Steps 1, 2, 4, and 5 are public. Steps 3, 6, and 7 require the JWT issued in step 2 to be sent as `Authorization: Bearer <token>`. The test attempt auto-completes on step 6 once every active question of the test has been answered (see [Answers](#answers)).
 
+The **Emma chatbot** ([Chats](#chats)) rides on the same visitor token: after step 2 the client can create a chat (`POST /api/v1/chats`) and stream answers over SSE (`POST /api/v1/chats/{id}/messages`), independently of any test attempt.
+
 ---
 
 ## 🚀 Tech stack
@@ -103,8 +107,10 @@ Steps 1, 2, 4, and 5 are public. Steps 3, 6, and 7 require the JWT issued in ste
 - **PyJWT** `2.10` — JWT issuance and validation (HS256)
 - **slowapi** `0.1.9` — IP-based rate limiting
 - **google-genai** `1.16.1` — Gemini API client used to embed search queries with `gemini-embedding-001` (1536-dim); no local embedding model is loaded
-- **qdrant-client** `1.13.2` — Qdrant client used to query the `proposal_chunks` vector collection
+- **qdrant-client** `1.13.2` — Qdrant client used to query the chunk vector collections (`proposal_chunks`, `document_chunks`, `interview_chunks`, `news_chunks`)
 - **rank-bm25** `0.2.2` — in-memory BM25 lexical index fused with the dense results via Reciprocal Rank Fusion
+- **langchain-core** `1.4.6` + **langchain-google-genai** `4.2.5` — prompt templates, retriever abstraction and the Gemini chat model behind the Emma chatbot
+- **sse-starlette** `2.4.1` — Server-Sent Events response for the chat streaming endpoint
 
 ---
 
@@ -128,8 +134,10 @@ api/
 │   │   └── bm25_index.py     # In-memory BM25 index over proposal_chunks
 │   └── domains/              # One folder per domain
 │       ├── answer/
+│       ├── auth/             # Visitor token issuance (/auth/token)
 │       ├── candidate/
 │       ├── category/
+│       ├── chat/             # Emma chatbot (RAG + memory + SSE)
 │       ├── document/         # Candidate PDFs (extracted Markdown)
 │       ├── document_chunk/   # Structure-aware chunks of a document
 │       ├── event/
@@ -262,7 +270,8 @@ Loaded from `api/.env` via [`Settings`](app/core/config.py) (pydantic-settings).
 | `JWT_EXPIRES_MINUTES` |    no    | `1440` (24 h)            | Token lifetime in minutes                                     |
 | `QDRANT_URL`          |    no    | `http://localhost:6333`  | URL of the Qdrant instance backing the `/search/proposals` endpoint |
 | `QDRANT_API_KEY`      |    no    | `""` (unset)             | Optional Qdrant API key. Leave empty for the local docker-compose instance |
-| `GEMINI_API_KEY`      |    no    | `""` (unset)             | Google AI Studio key used to embed search queries with `gemini-embedding-001`. Required for `/search/proposals`; the same key the `analysis` service uses |
+| `GEMINI_API_KEY`      |    no    | `""` (unset)             | Google AI Studio key used to embed search queries with `gemini-embedding-001` and to run the Emma chatbot. Required for `/search/proposals` and `/chats`; the same key the `analysis` service uses |
+| `GEMINI_CHAT_MODEL`   |    no    | `gemini-2.5-flash`       | Gemini model behind the Emma chatbot (answers, history summaries and chat titles) |
 | `EAGER_LOAD_SEARCH_ON_STARTUP` | no | `False` | Pre-builds the BM25 index during FastAPI startup when enabled (query embeddings are remote, so there is no model to pre-load) |
 | `CORS_ORIGINS`        |    no    | `http://localhost:5173,http://127.0.0.1:5173` | Comma-separated list of exact origins allowed by the CORS middleware. Parsed into a list via `Settings.cors_origin_list`. |
 | `CORS_ORIGIN_REGEX`   |    no    | `https?://(localhost\|127\.0\.0\.1):\d+` | Regex matched against the request `Origin` header. Lets dev ports through without listing each one in `CORS_ORIGINS`. |
@@ -1259,9 +1268,84 @@ Errors: `422` if `q` is empty; `429` rate limit.
 
 ---
 
+### Chats
+
+[routes.py](app/domains/chat/routes.py) · [service.py](app/domains/chat/service.py) · [models.py](app/domains/chat/models.py) · [retriever.py](app/domains/chat/retriever.py) · [prompts.py](app/domains/chat/prompts.py)
+
+**Emma**, the Elegio chatbot: a RAG assistant (LangChain + Gemini, model set by `GEMINI_CHAT_MODEL`) grounded on the four Qdrant chunk collections (`proposal_chunks`, `document_chunks`, `interview_chunks`, `news_chunks`). Every chat belongs to the visitor in the JWT.
+
+**Memory.** Each turn sends `chats.summary` (a rolling summary of old messages) plus the messages newer than `chats.last_summarized_message_id` verbatim. When the verbatim history exceeds a token budget (~8,000 tokens, approximated at 4 chars/token — deliberately far below the ~1M-token context window of the model to bound cost and latency), everything but the last 8 messages is folded into the summary with one LLM call.
+
+> **Prerequisite.** The Qdrant collections must be populated by the [analysis](../analysis) service, and `GEMINI_API_KEY` must be set. Collections that are missing are skipped by the retriever.
+
+#### `POST /api/v1/chats`
+
+Create a chat for the visitor in the bearer token.
+
+- **Auth**: required
+- **Rate limit**: `500/minute`
+- **Status**: `201 Created`
+- **Body**: `{ "title": "optional, ≤150 chars" }` — defaults to `"Nueva conversación"`; the bot renames the chat after the first exchange.
+
+Response `201 Created`:
+
+```json
+{ "id": 1, "title": "Nueva conversación", "is_active": true, "created_at": "2026-06-11T12:00:00" }
+```
+
+Errors: `401` missing/invalid token; `429` rate limit.
+
+#### `GET /api/v1/chats`
+
+List the visitor's active chats, ordered by `created_at DESC`.
+
+- **Auth**: required
+- **Rate limit**: `500/minute`
+- **Query**: `limit`, `offset`
+
+Errors: `401`; `429`.
+
+#### `GET /api/v1/chats/{chat_id}/messages`
+
+List the messages of one of the visitor's chats, ordered by `id ASC`.
+
+- **Auth**: required
+- **Rate limit**: `500/minute`
+- **Query**: `limit`, `offset`
+
+Each item carries `role` (`user` / `assistant`), `content`, and the monitoring metadata `tokens_used` and `latency_ms`.
+
+Errors: `401`; `404` chat not found or owned by another visitor; `429`.
+
+#### `POST /api/v1/chats/{chat_id}/messages`
+
+Send a message and stream the assistant reply over **Server-Sent Events** (`text/event-stream`).
+
+- **Auth**: required
+- **Rate limit**: `500/minute`
+- **Body**: `{ "content": "1..4000 chars" }`
+
+Event sequence:
+
+| Event     | Payload                                                                                         |
+| --------- | ----------------------------------------------------------------------------------------------- |
+| `sources` | Retrieved refs: `[{ ref, collection, score, candidate_id, candidate_name, title, url }, ...]`   |
+| `token`   | One per streamed delta: `{ "delta": "..." }`                                                    |
+| `title`   | Only on the first exchange, when the bot names the chat: `{ "title": "..." }`                   |
+| `done`    | `{ user_message, assistant_message }` — both persisted `ChatMessageRead` objects                |
+| `error`   | `{ "detail": "..." }` — emitted instead of `done` if generation fails (the user message is kept) |
+
+The user message is persisted before generation starts; the assistant message is persisted with `tokens_used` (aggregated from the stream usage metadata) and `latency_ms` before `done` is emitted.
+
+Errors (before the stream starts): `400` chat is not active; `401`; `404` chat not found; `422` body validation; `429`.
+
+> The schema also includes a `message_feedback` table ([models.py](app/domains/chat/models.py)) for a one-per-message `like`/`dislike` rating with an optional reason and comment. It has **no REST endpoints yet**.
+
+---
+
 ## 🗂 Content-source tables
 
-In addition to proposals, the schema models three other candidate content sources — **news articles**, **documents** (PDFs), and **interviews** (video/speech transcripts). Each parent table is paired with a chunk table feeding the RAG pipeline, mirroring `proposals` / `proposal_chunks`. These are **model-only domains**: they define SQLAlchemy models and Alembic migrations but expose **no REST endpoints yet** — they are populated and consumed by the [analysis](../analysis) service.
+In addition to proposals, the schema models three other candidate content sources — **news articles**, **documents** (PDFs), and **interviews** (video/speech transcripts). Each parent table is paired with a chunk table feeding the RAG pipeline, mirroring `proposals` / `proposal_chunks`. These are **model-only domains**: they define SQLAlchemy models and Alembic migrations but expose **no REST endpoints yet** — they are populated by the [analysis](../analysis) service and consumed through their Qdrant collections by the [Emma chatbot](#chats) retriever.
 
 Shared conventions across all three sources:
 
