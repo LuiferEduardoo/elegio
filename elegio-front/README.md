@@ -107,6 +107,16 @@ npm run lint      # Run ESLint
 
 All requests go through the shared `apiClient` in [`src/config/api.ts`](src/config/api.ts) (axios instance with `baseURL = VITE_API_URL` and a 10s timeout). Feature `api/` modules call versioned endpoints under `/api/v1` and map errors to user-facing messages. Avoid `fetch`/bare `axios` in components — call a feature `api/` function instead.
 
+### Auth flow (tests feature)
+
+The affinity test uses an anonymous **visitor token** (no user accounts):
+
+1. `createAuthToken()` posts the visitor/session metadata (language, timezone, screen, referer, …) to `POST /api/v1/auth/token` and receives a JWT bound to the visitor.
+2. `initializeTestAttempt(testId, token)` calls `POST /api/v1/test-attempts/initialize` with the token as `Authorization: Bearer` to create the test attempt.
+3. Protected calls (`/test-attempts`, `/answers`, `/answers/affinity`) send the same Bearer token; the API resolves the visitor's most recent attempt server-side.
+
+The token is persisted in a cookie (`src/features/tests/utils/testTokenCookie.ts`) so an in-progress test survives a page reload.
+
 ## 🧹 Code style
 
 - **Prettier** + **ESLint** for formatting and linting.
