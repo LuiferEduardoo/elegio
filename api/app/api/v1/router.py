@@ -3,6 +3,7 @@ from fastapi import APIRouter
 from app.domains.answer.routes import router as answer_router
 from app.domains.auth.routes import router as auth_router
 from app.domains.candidate.routes import router as candidate_router
+from app.domains.chat.routes import router as chat_router
 from app.domains.event.routes import router as event_router
 from app.domains.government_plan.routes import router as government_plan_router
 from app.domains.proposal.routes import router as proposal_router
@@ -24,4 +25,5 @@ api_router.include_router(question_router)
 api_router.include_router(response_option_router)
 api_router.include_router(answer_router)
 api_router.include_router(search_router)
+api_router.include_router(chat_router)
 
