@@ -46,10 +46,6 @@ class AnswerCreate(BaseModel):
     response_time: int | None = Field(default=None, ge=0)
 
 
-class AnswerCreateWithAttempt(AnswerCreate):
-    test_attempt_uuid: str | None = None
-
-
 class AnswerUpdate(BaseModel):
     response_option_id: int | None = Field(default=None, gt=0)
     boolean_answer: bool | None = None

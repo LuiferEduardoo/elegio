@@ -24,16 +24,14 @@ async def create_event(
     token_payload: dict[str, Any] = Depends(get_token_payload),
     db: AsyncSession = Depends(get_db),
 ) -> EventRead:
-    test_attempt_uuid = token_payload.get("test_attempt_uuid")
-    if not test_attempt_uuid:
+    visitor_id = token_payload.get("visitor_id")
+    if not visitor_id:
         raise HTTPException(
-            status.HTTP_401_UNAUTHORIZED, "Token missing test_attempt_uuid"
+            status.HTTP_401_UNAUTHORIZED, "Token missing visitor_id"
         )
 
     try:
-        event = await service.create_event(db, payload, test_attempt_uuid)
-    except service.TestAttemptNotFoundError as e:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, str(e))
+        event = await service.create_event(db, payload, visitor_id)
     except service.SessionNotFoundError as e:
         raise HTTPException(status.HTTP_404_NOT_FOUND, str(e))
 

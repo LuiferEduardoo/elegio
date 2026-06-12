@@ -11,7 +11,6 @@ from app.domains.answer.schemas import (
     AffinityResponse,
     AnswerCreate,
     AnswerCreateResponse,
-    AnswerCreateWithAttempt,
     AnswerList,
     AnswerRead,
     AnswerUpdate,
@@ -33,12 +32,8 @@ async def create_answer(
     db: AsyncSession = Depends(get_db),
 ) -> AnswerCreateResponse:
     try:
-        answer_payload = AnswerCreateWithAttempt(
-            **payload.model_dump(),
-            test_attempt_uuid=token_payload.get("test_attempt_uuid"),
-        )
         answer, test_completed, test_status = await service.create_answer(
-            db, answer_payload
+            db, payload, token_payload.get("visitor_id")
         )
     except (
         service.TestAttemptNotFoundError,
@@ -71,7 +66,7 @@ async def update_answer(
 ) -> AnswerRead:
     try:
         answer = await service.update_answer(
-            db, answer_id, payload, token_payload.get("test_attempt_uuid")
+            db, answer_id, payload, token_payload.get("visitor_id")
         )
     except (
         service.AnswerNotFoundError,
@@ -99,8 +94,7 @@ async def list_answers(
 ) -> AnswerList:
     answers, total = await service.list_answers(
         db,
-        token_payload.get("test_attempt_uuid"),
-        token_payload.get("test_id"),
+        token_payload.get("visitor_id"),
         limit,
         offset,
     )
@@ -121,7 +115,7 @@ async def get_affinity(
 ) -> AffinityResponse:
     try:
         return await service.get_affinity(
-            db, token_payload.get("test_attempt_uuid")
+            db, token_payload.get("visitor_id")
         )
     except service.TestAttemptNotFoundError as e:
         raise HTTPException(status.HTTP_404_NOT_FOUND, str(e))

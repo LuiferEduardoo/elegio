@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.domains.answer.models import Answer
 from app.domains.answer.schemas import (
     AffinityResponse,
-    AnswerCreateWithAttempt,
+    AnswerCreate,
     AnswerUpdate,
     CandidateAffinity,
     CategoryAverage,
@@ -19,9 +19,7 @@ from app.domains.question.models import Question
 from app.domains.rhetorical_weight.models import RhetoricalWeight
 from app.domains.rhetorical_weight.service import apply_rhetorical_weight
 from app.domains.response_option.models import ResponseOption
-from app.domains.session.models import Session as VisitorSession
 from app.domains.test_attempt.models import TestAttempt, TestStatus
-from app.domains.visitor.models import Visitor
 
 
 class AnswerNotFoundError(Exception):
@@ -53,12 +51,12 @@ class ResponseOptionDoesNotBelongToQuestionError(Exception):
 
 
 async def create_answer(
-    db: AsyncSession, payload: AnswerCreateWithAttempt
+    db: AsyncSession, payload: AnswerCreate, visitor_id: int | None
 ) -> tuple[Answer, bool, TestStatus]:
-    attempt = await _get_test_attempt_by_uuid(db, payload.test_attempt_uuid)
-    if attempt is None or attempt.deleted_at is not None:
+    attempt = await _get_current_attempt_by_visitor(db, visitor_id)
+    if attempt is None:
         raise TestAttemptNotFoundError(
-            f"TestAttempt {payload.test_attempt_uuid} not found"
+            f"No test attempt found for visitor {visitor_id}"
         )
     if attempt.status != TestStatus.IN_PROGRESS:
         raise TestAttemptNotInProgressError(
@@ -88,7 +86,7 @@ async def create_answer(
         db, attempt.id, payload.question_id
     )
     if existing_answer is not None:
-        answer_data = payload.model_dump(exclude={"test_attempt_uuid"})
+        answer_data = payload.model_dump()
         for field, value in answer_data.items():
             setattr(existing_answer, field, value)
 
@@ -103,7 +101,7 @@ async def create_answer(
         await db.refresh(attempt)
         return existing_answer, test_completed, attempt.status
 
-    answer_data = payload.model_dump(exclude={"test_attempt_uuid"})
+    answer_data = payload.model_dump()
     answer = Answer(test_attempt_id=attempt.id, **answer_data)
     db.add(answer)
     await db.flush()
@@ -122,16 +120,16 @@ async def create_answer(
 
 
 async def update_answer(
-    db: AsyncSession, answer_id: int, payload: AnswerUpdate, uuid_test_attempt: str
+    db: AsyncSession, answer_id: int, payload: AnswerUpdate, visitor_id: int | None
 ) -> Answer:
     answer = await db.get(Answer, answer_id)
     if answer is None or answer.deleted_at is not None:
         raise AnswerNotFoundError(f"Answer {answer_id} not found")
 
-    attempt = await _get_test_attempt_by_uuid(db, uuid_test_attempt)
-    if attempt is None or attempt.deleted_at is not None:
+    attempt = await _get_current_attempt_by_visitor(db, visitor_id)
+    if attempt is None:
         raise TestAttemptNotFoundError(
-            f"TestAttempt {uuid_test_attempt} not found"
+            f"No test attempt found for visitor {visitor_id}"
         )
     if attempt.status != TestStatus.IN_PROGRESS:
         raise TestAttemptNotInProgressError(
@@ -162,18 +160,21 @@ async def update_answer(
     return answer
 
 
-async def _get_test_attempt_by_uuid(
-    db: AsyncSession, test_attempt_uuid: str | None
+async def _get_current_attempt_by_visitor(
+    db: AsyncSession, visitor_id: int | None
 ) -> TestAttempt | None:
-    if not test_attempt_uuid:
+    if not visitor_id:
         return None
 
     return (
         await db.execute(
-            select(TestAttempt).where(
-                TestAttempt.uuid == test_attempt_uuid,
+            select(TestAttempt)
+            .where(
+                TestAttempt.visitor_id == visitor_id,
                 TestAttempt.deleted_at.is_(None),
             )
+            .order_by(TestAttempt.created_at.desc(), TestAttempt.id.desc())
+            .limit(1)
         )
     ).scalar_one_or_none()
 
@@ -216,7 +217,7 @@ async def _is_test_completed(db: AsyncSession, attempt: TestAttempt) -> bool:
 
 
 async def get_affinity(
-    db: AsyncSession, test_attempt_uuid: str
+    db: AsyncSession, visitor_id: int | None
 ) -> AffinityResponse:
     """Average the user's answers per category and rank candidates by Weighted
     Manhattan Distance against those averages.
@@ -224,17 +225,10 @@ async def get_affinity(
     distance(user, candidate) = Σ |user_avg[c] − candidate_avg[c]| × weight[c]
     affinity = 1 − distance / Σ (2 × weight[c])    # axis range [-1, 1] → max diff = 2
     """
-    attempt = (
-        await db.execute(
-            select(TestAttempt).where(
-                TestAttempt.uuid == test_attempt_uuid,
-                TestAttempt.deleted_at.is_(None),
-            )
-        )
-    ).scalar_one_or_none()
+    attempt = await _get_current_attempt_by_visitor(db, visitor_id)
     if attempt is None:
         raise TestAttemptNotFoundError(
-            f"TestAttempt {test_attempt_uuid} not found"
+            f"No test attempt found for visitor {visitor_id}"
         )
 
     user_rows = (
@@ -272,7 +266,7 @@ async def get_affinity(
 
     if not user_averages:
         return AffinityResponse(
-            test_attempt_uuid=test_attempt_uuid,
+            test_attempt_uuid=attempt.uuid,
             user_averages=[],
             candidates=[],
         )
@@ -317,7 +311,7 @@ async def get_affinity(
 
     if not candidate_vectors:
         return AffinityResponse(
-            test_attempt_uuid=test_attempt_uuid,
+            test_attempt_uuid=attempt.uuid,
             user_averages=user_averages,
             candidates=[],
         )
@@ -374,28 +368,22 @@ async def get_affinity(
     rankings.sort(key=lambda c: c.affinity, reverse=True)
 
     return AffinityResponse(
-        test_attempt_uuid=test_attempt_uuid,
+        test_attempt_uuid=attempt.uuid,
         user_averages=user_averages,
         candidates=rankings,
     )
 
 
 async def list_answers(
-    db: AsyncSession, test_attempt_uuid: str, test_id: int, limit: int, offset: int
+    db: AsyncSession, visitor_id: int | None, limit: int, offset: int
 ) -> tuple[list[Answer], int]:
-    attempt_ids_subq = (
-        select(TestAttempt.id)
-        .where(
-            TestAttempt.uuid == test_attempt_uuid,
-            TestAttempt.test_id == test_id,
-            TestAttempt.deleted_at.is_(None),
-        )
-        .scalar_subquery()
-    )
+    attempt = await _get_current_attempt_by_visitor(db, visitor_id)
+    if attempt is None:
+        return [], 0
 
     filters = (
         Answer.deleted_at.is_(None),
-        Answer.test_attempt_id.in_(attempt_ids_subq),
+        Answer.test_attempt_id == attempt.id,
     )
 
     total = (
