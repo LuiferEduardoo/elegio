@@ -134,13 +134,17 @@ const EMMA_STEPS: EmmaStep[] = [
 const INTERVIEW_HOURS = '21:40:43'
 
 const MEDIA_OUTLETS = [
+  'A Fondo',
   'Blu Radio',
   'Campaña de Abelardo',
   'Campaña de Cepeda',
   'Caracol Radio',
+  'Caracol Televisión',
   'CNE',
   'ColombiaCheck',
+  'Daniel Coronell',
   'Defensoría del Pueblo',
+  'Diego Ruzzarin',
   'El CLIP',
   'El Colombiano',
   'El País',
@@ -148,11 +152,16 @@ const MEDIA_OUTLETS = [
   'FLIP',
   'La Silla Vacía',
   'Milenio',
+  'Noticias Caracol',
+  'Noticias Uno Colombia',
   'Pares',
+  'Piso 8',
   'Portafolio',
   'RCN',
   'Semana',
+  'TDI Colombia Televisión',
   'Univision',
+  'Westcol',
 ]
 
 const PRINCIPLES: {
