@@ -45,7 +45,7 @@ export function ChatWindow({
   }
 
   return (
-    <div className="flex h-[32rem] max-h-[70vh] w-[22rem] max-w-[calc(100vw-3rem)] animate-fade-in flex-col overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-black/10">
+    <div className="flex h-[32rem] max-h-[70vh] w-[25rem] max-w-[calc(100vw-3rem)] animate-fade-in flex-col overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-black/10">
       <header
         className="flex items-center gap-3 px-4 py-3 text-white"
         style={{ backgroundColor: '#2563eb' }}
