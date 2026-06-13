@@ -93,3 +93,68 @@
     font: inherit;
   }
 }
+
+.chat-markdown > :first-child {
+  margin-top: 0;
+}
+
+.chat-markdown > :last-child {
+  margin-bottom: 0;
+}
+
+.chat-markdown p {
+  margin: 0.5em 0;
+}
+
+.chat-markdown ul,
+.chat-markdown ol {
+  margin: 0.5em 0;
+  padding-left: 1.25em;
+}
+
+.chat-markdown ul {
+  list-style: disc;
+}
+
+.chat-markdown ol {
+  list-style: decimal;
+}
+
+.chat-markdown li {
+  margin: 0.2em 0;
+}
+
+.chat-markdown strong {
+  font-weight: 600;
+}
+
+.chat-markdown a {
+  color: var(--color-clay);
+  text-decoration: underline;
+}
+
+.chat-markdown h1,
+.chat-markdown h2,
+.chat-markdown h3 {
+  margin: 0.6em 0 0.3em;
+  font-weight: 600;
+}
+
+.chat-markdown code {
+  border-radius: 0.3em;
+  background: rgba(18, 53, 91, 0.08);
+  padding: 0.1em 0.35em;
+  font-size: 0.9em;
+}
+
+.chat-markdown pre {
+  overflow-x: auto;
+  border-radius: 0.6em;
+  background: rgba(18, 53, 91, 0.08);
+  padding: 0.6em 0.8em;
+}
+
+.chat-markdown pre code {
+  background: transparent;
+  padding: 0;
+}
