@@ -8,6 +8,7 @@ import {
 } from '../api/chatApi'
 import type { ChatMessage } from '../types'
 import {
+  clearStoredChat,
   loadChatId,
   loadMessages,
   saveChatId,
@@ -48,6 +49,7 @@ export function useEmmaChat() {
   const activeIdRef = useRef<string | null>(null)
   const frameRef = useRef<number | null>(null)
   const revealRef = useRef<() => void>(() => {})
+  const abortRef = useRef<AbortController | null>(null)
 
   const stopReveal = useCallback(() => {
     if (frameRef.current !== null) {
@@ -133,32 +135,59 @@ export function useEmmaChat() {
       stopReveal()
       frameRef.current = requestAnimationFrame(() => revealRef.current())
 
+      const controller = new AbortController()
+      abortRef.current = controller
+
       try {
         const { token, chatId } = await ensureSession()
-        await streamMessage(token, chatId, content, {
-          onToken: (delta) => {
-            targetRef.current += delta
+        await streamMessage(
+          token,
+          chatId,
+          content,
+          {
+            onToken: (delta) => {
+              targetRef.current += delta
+            },
+            onError: (detail) => {
+              setError(detail)
+            },
           },
-          onError: (detail) => {
-            setError(detail)
-          },
-        })
+          controller.signal,
+        )
       } catch {
-        setError(CHAT_ERROR_MESSAGE)
+        // An aborted turn (reset/new chat) already reset the state below; only
+        // surface real failures.
+        if (!controller.signal.aborted) setError(CHAT_ERROR_MESSAGE)
       } finally {
-        streamDoneRef.current = true
-        if (targetRef.current.length === 0) {
-          // Nothing came back (e.g. a server error event): drop the empty
-          // assistant bubble and stop the reveal loop right away.
-          stopReveal()
-          activeIdRef.current = null
-          setMessages((prev) => prev.filter((m) => m.id !== assistantId))
-          setIsStreaming(false)
+        if (!controller.signal.aborted) {
+          streamDoneRef.current = true
+          if (targetRef.current.length === 0) {
+            // Nothing came back (e.g. a server error event): drop the empty
+            // assistant bubble and stop the reveal loop right away.
+            stopReveal()
+            activeIdRef.current = null
+            setMessages((prev) => prev.filter((m) => m.id !== assistantId))
+            setIsStreaming(false)
+          }
         }
       }
     },
     [ensureSession, isStreaming, stopReveal],
   )
 
-  return { messages, isStreaming, error, sendMessage }
+  const resetChat = useCallback(() => {
+    abortRef.current?.abort()
+    stopReveal()
+    activeIdRef.current = null
+    targetRef.current = ''
+    shownRef.current = ''
+    streamDoneRef.current = true
+    chatIdRef.current = null
+    clearStoredChat()
+    setError(null)
+    setIsStreaming(false)
+    setMessages([WELCOME_MESSAGE])
+  }, [stopReveal])
+
+  return { messages, isStreaming, error, sendMessage, resetChat }
 }

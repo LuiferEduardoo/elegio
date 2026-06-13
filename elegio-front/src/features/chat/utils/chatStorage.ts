@@ -39,3 +39,12 @@ export function saveChatId(chatId: number): void {
     // See saveMessages.
   }
 }
+
+export function clearStoredChat(): void {
+  try {
+    localStorage.removeItem(MESSAGES_KEY)
+    localStorage.removeItem(CHAT_ID_KEY)
+  } catch {
+    // See saveMessages.
+  }
+}

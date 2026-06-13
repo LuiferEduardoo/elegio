@@ -54,6 +54,7 @@ export function FloatingEmmaButton() {
           isStreaming={chat.isStreaming}
           error={chat.error}
           sendMessage={chat.sendMessage}
+          resetChat={chat.resetChat}
         />
       ) : (
         showBubble && (

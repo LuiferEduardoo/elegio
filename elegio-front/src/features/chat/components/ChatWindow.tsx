@@ -9,6 +9,7 @@ type ChatWindowProps = {
   isStreaming: boolean
   error: string | null
   sendMessage: (content: string) => void
+  resetChat: () => void
 }
 
 export function ChatWindow({
@@ -17,10 +18,12 @@ export function ChatWindow({
   isStreaming,
   error,
   sendMessage,
+  resetChat,
 }: ChatWindowProps) {
   const [input, setInput] = useState('')
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [anim, setAnim] = useState<'enter' | 'expand' | 'collapse' | 'close'>('enter')
+  const [showResetConfirm, setShowResetConfirm] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
@@ -32,6 +35,11 @@ export function ChatWindow({
   const requestClose = () => {
     setAnim('close')
     window.setTimeout(onClose, 200)
+  }
+
+  const confirmReset = () => {
+    resetChat()
+    setShowResetConfirm(false)
   }
 
   const animClass = {
@@ -79,7 +87,7 @@ export function ChatWindow({
       className={`flex flex-col overflow-hidden bg-white shadow-2xl ring-1 ring-black/10 ${animClass} ${
         isFullscreen
           ? 'fixed inset-0 z-50 origin-center rounded-none'
-          : 'h-[32rem] max-h-[70vh] w-[25rem] max-w-[calc(100vw-3rem)] origin-bottom-right rounded-2xl'
+          : 'relative h-[32rem] max-h-[70vh] w-[25rem] max-w-[calc(100vw-3rem)] origin-bottom-right rounded-2xl'
       }`}
     >
       <header
@@ -93,6 +101,23 @@ export function ChatWindow({
           <p className="font-semibold">Emma</p>
           <p className="text-xs text-white/80">Verifica las propuestas</p>
         </div>
+        <button
+          type="button"
+          aria-label="Nueva conversación"
+          title="Nueva conversación"
+          onClick={() => setShowResetConfirm(true)}
+          className="flex h-8 w-8 items-center justify-center rounded-full text-white/90 transition-colors hover:bg-white/15"
+        >
+          <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4" aria-hidden="true">
+            <path
+              d="M12 5v14m-7-7h14"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </button>
         <button
           type="button"
           aria-label={isFullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'}
@@ -198,6 +223,34 @@ export function ChatWindow({
           </svg>
         </button>
       </div>
+
+      {showResetConfirm && (
+        <div className="absolute inset-0 z-10 flex items-center justify-center bg-ink/40 px-6">
+          <div className="w-full max-w-sm animate-chat-open rounded-2xl bg-white p-5 shadow-2xl">
+            <p className="font-semibold text-ink">Nueva conversación</p>
+            <p className="mt-1 text-sm text-muted">
+              Se borrará esta conversación de forma permanente. ¿Quieres empezar una nueva?
+            </p>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowResetConfirm(false)}
+                className="rounded-xl px-4 py-2 text-sm font-medium text-ink transition-colors hover:bg-black/5"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={confirmReset}
+                className="rounded-xl px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90"
+                style={{ backgroundColor: '#2563eb' }}
+              >
+                Borrar y empezar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
