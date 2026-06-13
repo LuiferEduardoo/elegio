@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router'
 
 import { ChatWindow } from '../features/chat/components/ChatWindow'
 import { useEmmaChat } from '../features/chat/hooks/useEmmaChat'
+
+type ChatUrlState = 'open' | 'full'
 
 const EMMA_MESSAGES = [
   'Evita la desinformación. Pregúntale a Emma y descubre qué es real en las propuestas de los candidatos.',
@@ -21,8 +24,24 @@ export function FloatingEmmaButton() {
   )
   const [isExiting, setIsExiting] = useState(false)
   const [showBubble, setShowBubble] = useState(true)
-  const [isOpen, setIsOpen] = useState(false)
+  const [searchParams, setSearchParams] = useSearchParams()
   const chat = useEmmaChat()
+
+  const chatState = searchParams.get('chat')
+  const isOpen = chatState === 'open' || chatState === 'full'
+  const isFullscreen = chatState === 'full'
+
+  const setChat = (value: ChatUrlState | null) => {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev)
+        if (value) next.set('chat', value)
+        else next.delete('chat')
+        return next
+      },
+      { replace: true },
+    )
+  }
 
   useEffect(() => {
     if (!showBubble || isOpen) return
@@ -49,12 +68,14 @@ export function FloatingEmmaButton() {
     <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3">
       {isOpen ? (
         <ChatWindow
-          onClose={() => setIsOpen(false)}
+          onClose={() => setChat(null)}
           messages={chat.messages}
           isStreaming={chat.isStreaming}
           error={chat.error}
           sendMessage={chat.sendMessage}
           resetChat={chat.resetChat}
+          isFullscreen={isFullscreen}
+          onToggleFullscreen={() => setChat(isFullscreen ? 'open' : 'full')}
         />
       ) : (
         showBubble && (
@@ -81,14 +102,14 @@ export function FloatingEmmaButton() {
       <button
         type="button"
         aria-label={isOpen ? 'Cerrar asistente Emma' : 'Abrir asistente Emma'}
-        onClick={() => setIsOpen((prev) => !prev)}
+        onClick={() => setChat(isOpen ? null : 'open')}
         className="group relative flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full shadow-lg transition-all duration-300 hover:scale-105 hover:shadow-[0_0_25px_4px_rgba(37,99,235,0.6)] focus:outline-none focus-visible:ring-4 focus-visible:ring-white/40"
         style={{ backgroundColor: '#2563eb' }}
       >
         <img
           src="/logo-emma.webp"
           alt="Emma"
-          className="h-full w-full scale-[1.7] object-contain"
+          className="h-full w-full scale-[2.5] object-contain"
         />
         <span className="pointer-events-none absolute inset-0 -translate-x-full -skew-x-12 bg-gradient-to-r from-transparent via-white/50 to-transparent transition-transform duration-700 ease-out group-hover:translate-x-full" />
       </button>

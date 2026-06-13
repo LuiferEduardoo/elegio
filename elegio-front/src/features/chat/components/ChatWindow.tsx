@@ -10,6 +10,8 @@ type ChatWindowProps = {
   error: string | null
   sendMessage: (content: string) => void
   resetChat: () => void
+  isFullscreen: boolean
+  onToggleFullscreen: () => void
 }
 
 export function ChatWindow({
@@ -19,9 +21,10 @@ export function ChatWindow({
   error,
   sendMessage,
   resetChat,
+  isFullscreen,
+  onToggleFullscreen,
 }: ChatWindowProps) {
   const [input, setInput] = useState('')
-  const [isFullscreen, setIsFullscreen] = useState(false)
   const [anim, setAnim] = useState<'enter' | 'expand' | 'collapse' | 'close'>('enter')
   const [showResetConfirm, setShowResetConfirm] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -29,7 +32,7 @@ export function ChatWindow({
 
   const toggleFullscreen = () => {
     setAnim(isFullscreen ? 'collapse' : 'expand')
-    setIsFullscreen((prev) => !prev)
+    onToggleFullscreen()
   }
 
   const requestClose = () => {
