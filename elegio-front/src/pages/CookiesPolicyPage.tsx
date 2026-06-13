@@ -33,10 +33,10 @@ export function CookiesPolicyPage() {
             2. ¿Qué tipo de cookies utilizamos?
           </h2>
           <p className="mt-4 text-base leading-7">
-            En Elegio <strong className="text-ink">no usamos cookies de rastreo, de terceros ni con fines publicitarios.</strong> 
-            Únicamente utilizamos una cookie técnica y estrictamente necesaria:
+            En Elegio <strong className="text-ink">no usamos cookies de rastreo, de terceros ni con fines publicitarios.</strong>
+            Únicamente utilizamos cookies técnicas y estrictamente necesarias:
           </p>
-          
+
           <div className="mt-6 overflow-hidden rounded-2xl border border-coffee/10 bg-white shadow-sm">
             <table className="w-full text-left text-sm">
               <thead className="bg-surface/50 font-bold text-ink border-b border-coffee/10">
@@ -50,8 +50,16 @@ export function CookiesPolicyPage() {
                 <tr>
                   <td className="px-4 py-3 font-mono text-xs">elegio_test_token</td>
                   <td className="px-4 py-3">
-                    Identificador anónimo temporal. Se utiliza exclusivamente para guardar el progreso de tu "Match electoral" (el test) y poder calcular tus resultados finales. 
+                    Identificador anónimo temporal. Se utiliza exclusivamente para guardar el progreso de tu "Match electoral" (el test) y poder calcular tus resultados finales.
                     Sin esta cookie, perderías tu progreso en el test al recargar la página.
+                  </td>
+                  <td className="px-4 py-3">1 mes</td>
+                </tr>
+                <tr>
+                  <td className="px-4 py-3 font-mono text-xs">elegio_visitor_token</td>
+                  <td className="px-4 py-3">
+                    Identificador anónimo temporal del asistente Emma. Permite asociar tu conversación para mantener el contexto y reanudarla si recargas la página.
+                    Sin esta cookie, no podrías chatear con Emma.
                   </td>
                   <td className="px-4 py-3">1 mes</td>
                 </tr>
@@ -60,14 +68,28 @@ export function CookiesPolicyPage() {
           </div>
 
           <h2 className="mt-10 font-display text-2xl tracking-[-0.03em] text-ink">
-            3. Cómo gestionar las cookies
+            3. Almacenamiento local del chat
           </h2>
           <p className="mt-4 text-base leading-7">
-            Dado que la única cookie que utilizamos es estrictamente necesaria para el funcionamiento del test de afinidad, no requiere de consentimiento previo según las normativas de privacidad (como el RGPD o leyes locales). Sin embargo, siempre puedes configurar tu navegador para bloquearla. Ten en cuenta que si la bloqueas, no podrás realizar el "Match electoral" correctamente.
+            Para que tu conversación con Emma sobreviva a una recarga, guardamos el historial de mensajes en el <strong className="text-ink">almacenamiento local</strong> de tu navegador (no es una cookie y no se envía a nuestros servidores con cada petición):
           </p>
-          
+          <ul className="mt-4 flex flex-col gap-2 pl-5 list-disc text-base leading-7">
+            <li><span className="font-mono text-xs">elegio_chat_messages</span> — los mensajes de tu conversación actual.</li>
+            <li><span className="font-mono text-xs">elegio_chat_id</span> — el identificador de la conversación.</li>
+          </ul>
           <p className="mt-4 text-base leading-7">
-            Si deseas eliminar la cookie en cualquier momento, puedes hacerlo desde las opciones de privacidad y seguridad de los ajustes de tu navegador, o simplemente completando el test, tras lo cual la aplicación suele limpiar la sesión de forma automática.
+            Puedes borrarlos desde el propio chat con el botón de "nueva conversación" o limpiando los datos del sitio en tu navegador.
+          </p>
+
+          <h2 className="mt-10 font-display text-2xl tracking-[-0.03em] text-ink">
+            4. Cómo gestionar las cookies
+          </h2>
+          <p className="mt-4 text-base leading-7">
+            Dado que las cookies que utilizamos son estrictamente necesarias para el funcionamiento del test de afinidad y del asistente Emma, no requieren de consentimiento previo según las normativas de privacidad (como el RGPD o leyes locales). Sin embargo, siempre puedes configurar tu navegador para bloquearlas. Ten en cuenta que si las bloqueas, no podrás realizar el "Match electoral" ni chatear con Emma correctamente.
+          </p>
+
+          <p className="mt-4 text-base leading-7">
+            Si deseas eliminar las cookies en cualquier momento, puedes hacerlo desde las opciones de privacidad y seguridad de los ajustes de tu navegador. El historial de chat guardado en el almacenamiento local se borra con el botón de "nueva conversación" o al limpiar los datos del sitio.
           </p>
         </article>
       </main>
