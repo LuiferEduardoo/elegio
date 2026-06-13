@@ -98,6 +98,63 @@ const FORMULAS: Formula[] = [
   },
 ]
 
+type EmmaStep = {
+  number: string
+  title: string
+  body: string
+}
+
+const EMMA_STEPS: EmmaStep[] = [
+  {
+    number: '01',
+    title: 'Recuperación de contexto (RAG)',
+    body:
+      'Emma no responde de memoria. Por cada pregunta busca los fragmentos más relevantes en cuatro colecciones indexadas en Qdrant —propuestas, documentos, entrevistas y noticias— usando el mismo embedding multilingüe que el buscador (gemini-embedding-001). Toma los 4 mejores de cada colección y se queda con los 8 más similares en total por similitud coseno, comparables entre sí porque todas comparten el mismo modelo de embeddings.',
+  },
+  {
+    number: '02',
+    title: 'Generación con fuentes citadas',
+    body:
+      'Esos fragmentos se le entregan a Google Gemini junto con tu pregunta. Emma redacta la respuesta apoyándose solo en ese contexto y cita cada afirmación con referencias del tipo [n] que apuntan al fragmento usado (candidato, título y enlace cuando existe). Las fuentes viajan aparte de la respuesta para que puedas abrirlas y verificarlas vos mismo.',
+  },
+  {
+    number: '03',
+    title: 'Memoria con resumen progresivo',
+    body:
+      'Para sostener el hilo de la conversación sin disparar el costo, Emma conserva los mensajes recientes tal cual y va resumiendo los más viejos. Cuando el historial verbatim supera ~8.000 tokens, todos los mensajes salvo los 8 más recientes se condensan en un resumen con una sola llamada al modelo; ese resumen acompaña cada turno siguiente.',
+  },
+  {
+    number: '04',
+    title: 'Respuesta en streaming',
+    body:
+      'La respuesta se transmite token a token mediante Server-Sent Events, por eso la ves aparecer progresivamente en lugar de esperar al texto completo. El mismo canal envía primero las fuentes y, al final, marca el cierre del turno.',
+  },
+]
+
+const INTERVIEW_HOURS = '21:40:43'
+
+const MEDIA_OUTLETS = [
+  'Blu Radio',
+  'Campaña de Abelardo',
+  'Campaña de Cepeda',
+  'Caracol Radio',
+  'CNE',
+  'ColombiaCheck',
+  'Defensoría del Pueblo',
+  'El CLIP',
+  'El Colombiano',
+  'El País',
+  'El Tiempo',
+  'FLIP',
+  'La Silla Vacía',
+  'Milenio',
+  'Pares',
+  'Portafolio',
+  'RCN',
+  'Semana',
+  'Univision',
+]
+
 const PRINCIPLES: {
   title: string
   body: string
@@ -201,6 +258,74 @@ export function MethodologyPage() {
           </ul>
         </section>
 
+        <section aria-labelledby="emma" className="mb-16">
+          <h2 id="emma" className="font-display text-2xl tracking-[-0.03em] text-ink">
+            Emma, el asistente conversacional
+          </h2>
+          <p className="mt-3 max-w-2xl text-sm leading-7 text-muted">
+            Emma es el chat que te ayuda a contrastar qué es real en las propuestas de
+            los candidatos. No improvisa: cada respuesta se construye a partir de
+            fuentes recuperadas y citadas, para que puedas auditarla igual que el resto
+            de Elegio.
+          </p>
+          <ol className="mt-6 flex flex-col gap-4">
+            {EMMA_STEPS.map((step) => (
+              <li
+                key={step.number}
+                className="rounded-3xl border border-coffee/10 bg-white p-6 shadow-sm shadow-coffee/5"
+              >
+                <div className="flex items-baseline gap-4">
+                  <span className="font-display text-3xl font-black tabular-nums text-clay">
+                    {step.number}
+                  </span>
+                  <h3 className="font-display text-xl tracking-[-0.02em] text-ink">
+                    {step.title}
+                  </h3>
+                </div>
+                <p className="mt-3 text-sm leading-7 text-muted">{step.body}</p>
+              </li>
+            ))}
+          </ol>
+        </section>
+
+        <section aria-labelledby="sources" className="mb-16">
+          <h2 id="sources" className="font-display text-2xl tracking-[-0.03em] text-ink">
+            Las fuentes detrás de las respuestas
+          </h2>
+          <p className="mt-3 max-w-2xl text-sm leading-7 text-muted">
+            El corpus que alimenta el buscador y a Emma no son solo los planes de
+            gobierno: también incorporamos entrevistas y cobertura periodística para
+            poder contrastar lo que cada candidatura dice en distintos espacios.
+          </p>
+
+          <div className="mt-6 grid gap-4 sm:grid-cols-[auto_1fr] sm:items-stretch">
+            <div className="flex flex-col justify-center rounded-3xl border border-coffee/10 bg-white p-6 text-center shadow-sm shadow-coffee/5">
+              <span className="font-display text-4xl font-black tabular-nums tracking-[-0.03em] text-clay">
+                {INTERVIEW_HOURS}
+              </span>
+              <span className="mt-2 text-xs font-bold uppercase tracking-[0.2em] text-muted">
+                Horas de entrevistas procesadas
+              </span>
+            </div>
+
+            <div className="rounded-3xl border border-coffee/10 bg-white p-6 shadow-sm shadow-coffee/5">
+              <h3 className="text-sm font-bold uppercase tracking-[0.2em] text-jade">
+                Medios, portales y fuentes consultados
+              </h3>
+              <ul className="mt-4 flex flex-wrap gap-2">
+                {MEDIA_OUTLETS.map((outlet) => (
+                  <li
+                    key={outlet}
+                    className="rounded-full border border-coffee/10 bg-surface/70 px-3 py-1 text-sm text-coffee"
+                  >
+                    {outlet}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </section>
+
         <section aria-labelledby="principles" className="mb-16">
           <h2
             id="principles"
@@ -254,6 +379,12 @@ export function MethodologyPage() {
               <strong className="font-bold text-ink">No reemplaza la lectura directa.</strong>{' '}
               Cada propuesta enlaza a su fuente: usá la herramienta para llegar más
               rápido al plan, no para reemplazarlo.
+            </li>
+            <li>
+              <strong className="font-bold text-ink">Emma puede equivocarse.</strong>{' '}
+              El asistente responde a partir de las fuentes que recupera y las cita,
+              pero es un modelo de lenguaje y puede fallar. Revisá siempre las
+              referencias que entrega antes de darlas por ciertas.
             </li>
           </ul>
         </section>
