@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { Outlet, useLocation } from 'react-router'
+import { FloatingEmmaButton } from './FloatingEmmaButton'
 
 export function RootLayout() {
   const { pathname } = useLocation()
@@ -12,5 +13,10 @@ export function RootLayout() {
     })
   }, [pathname])
 
-  return <Outlet />
+  return (
+    <>
+      <Outlet />
+      <FloatingEmmaButton />
+    </>
+  )
 }
