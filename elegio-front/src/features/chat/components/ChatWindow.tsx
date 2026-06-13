@@ -20,8 +20,26 @@ export function ChatWindow({
 }: ChatWindowProps) {
   const [input, setInput] = useState('')
   const [isFullscreen, setIsFullscreen] = useState(false)
+  const [anim, setAnim] = useState<'enter' | 'expand' | 'collapse' | 'close'>('enter')
   const scrollRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
+
+  const toggleFullscreen = () => {
+    setAnim(isFullscreen ? 'collapse' : 'expand')
+    setIsFullscreen((prev) => !prev)
+  }
+
+  const requestClose = () => {
+    setAnim('close')
+    window.setTimeout(onClose, 200)
+  }
+
+  const animClass = {
+    enter: 'animate-chat-open',
+    expand: 'animate-chat-expand',
+    collapse: 'animate-chat-collapse',
+    close: 'animate-chat-close',
+  }[anim]
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
@@ -58,10 +76,10 @@ export function ChatWindow({
 
   return (
     <div
-      className={`flex animate-fade-in flex-col overflow-hidden bg-white shadow-2xl ring-1 ring-black/10 ${
+      className={`flex flex-col overflow-hidden bg-white shadow-2xl ring-1 ring-black/10 ${animClass} ${
         isFullscreen
-          ? 'fixed inset-0 z-50 rounded-none'
-          : 'h-[32rem] max-h-[70vh] w-[25rem] max-w-[calc(100vw-3rem)] rounded-2xl'
+          ? 'fixed inset-0 z-50 origin-center rounded-none'
+          : 'h-[32rem] max-h-[70vh] w-[25rem] max-w-[calc(100vw-3rem)] origin-bottom-right rounded-2xl'
       }`}
     >
       <header
@@ -78,7 +96,7 @@ export function ChatWindow({
         <button
           type="button"
           aria-label={isFullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'}
-          onClick={() => setIsFullscreen((prev) => !prev)}
+          onClick={toggleFullscreen}
           className="flex h-8 w-8 items-center justify-center rounded-full text-white/90 transition-colors hover:bg-white/15"
         >
           <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4" aria-hidden="true">
@@ -104,7 +122,7 @@ export function ChatWindow({
         <button
           type="button"
           aria-label="Cerrar chat"
-          onClick={onClose}
+          onClick={requestClose}
           className="flex h-8 w-8 items-center justify-center rounded-full text-white/90 transition-colors hover:bg-white/15"
         >
           <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4" aria-hidden="true">
