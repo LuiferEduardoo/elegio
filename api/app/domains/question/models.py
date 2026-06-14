@@ -1,6 +1,6 @@
 import enum
 
-from sqlalchemy import Boolean, Enum, ForeignKey, Integer, Text
+from sqlalchemy import Boolean, Enum, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base, TimestampMixin
@@ -13,6 +13,7 @@ class QuestionType(str, enum.Enum):
     BOOLEAN = "boolean"
     ONLY_OPTION = "only_option"
     OPEN_QUESTION = "open_question"
+    VIDEO_EMOTION_SLIDER = "video_emotion_slider"
 
 
 class Question(Base, TimestampMixin):
@@ -31,6 +32,7 @@ class Question(Base, TimestampMixin):
     )
     question_order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    video_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
     test: Mapped[Test] = relationship()
     category: Mapped[Category | None] = relationship()
