@@ -85,19 +85,22 @@ async def update_answer(
     return AnswerRead.model_validate(answer)
 
 
-@router.get("/affinity", response_model=AffinityResponse)
+@router.get("/affinity/{test_id}", response_model=AffinityResponse)
 @limiter.limit(PRIVATE_RATE_LIMIT)
 async def get_affinity(
     request: Request,
+    test_id: int = Path(gt=0),
     token_payload: dict[str, Any] = Depends(get_token_payload),
     db: AsyncSession = Depends(get_db),
 ) -> AffinityResponse:
     try:
         return await service.get_affinity(
-            db, token_payload.get("visitor_id")
+            db, token_payload.get("visitor_id"), test_id
         )
-    except service.TestAttemptNotFoundError as e:
+    except (service.TestNotFoundError, service.TestAttemptNotFoundError) as e:
         raise HTTPException(status.HTTP_404_NOT_FOUND, str(e))
+    except service.UnsupportedTestTypeError as e:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e))
 
 
 @router.get("/{test_id}", response_model=AnswerList)
