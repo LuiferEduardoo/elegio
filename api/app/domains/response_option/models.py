@@ -14,5 +14,6 @@ class ResponseOption(Base, TimestampMixin):
     )
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     value: Mapped[float] = mapped_column(Float, nullable=False)
+    axis_value: Mapped[float] = mapped_column(Float, nullable=True)
 
     question: Mapped[Question] = relationship()
