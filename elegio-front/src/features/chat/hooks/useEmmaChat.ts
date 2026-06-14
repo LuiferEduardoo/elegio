@@ -1,11 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-import {
-  CHAT_ERROR_MESSAGE,
-  createChat,
-  createVisitorToken,
-  streamMessage,
-} from '../api/chatApi'
+import { getOrCreateVisitorToken } from '../../../utils/visitorToken'
+import { CHAT_ERROR_MESSAGE, createChat, streamMessage } from '../api/chatApi'
 import type { ChatMessage } from '../types'
 import {
   clearStoredChat,
@@ -14,10 +10,6 @@ import {
   saveChatId,
   saveMessages,
 } from '../utils/chatStorage'
-import {
-  getVisitorTokenCookie,
-  setVisitorTokenCookie,
-} from '../utils/visitorTokenCookie'
 
 const WELCOME_MESSAGE: ChatMessage = {
   id: 'welcome',
@@ -100,9 +92,7 @@ export function useEmmaChat() {
 
   const ensureSession = useCallback(async () => {
     if (!tokenRef.current) {
-      const existing = getVisitorTokenCookie()
-      tokenRef.current = existing ?? (await createVisitorToken())
-      if (!existing) setVisitorTokenCookie(tokenRef.current)
+      tokenRef.current = await getOrCreateVisitorToken()
     }
     if (chatIdRef.current === null) {
       const chat = await createChat(tokenRef.current)

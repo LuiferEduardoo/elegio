@@ -2,33 +2,7 @@ import { API_BASE_URL, apiClient } from '../../../config/api'
 import type { ChatRead, ChatSource, StreamHandlers } from '../types'
 
 export const CHAT_ERROR_MESSAGE =
-  'No pudimos conectar con Emma. Revisá que la API esté corriendo.'
-
-type AuthTokenResponse = {
-  token: string
-  visitor_id: number
-}
-
-export async function createVisitorToken(): Promise<string> {
-  const response = await apiClient.post<AuthTokenResponse>('/api/v1/auth/token', {
-    visitor: {
-      primary_language: navigator.language,
-      languages: navigator.languages ? Array.from(navigator.languages) : undefined,
-      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-      consent_given: true,
-      screen_width: window.screen.width,
-      screen_height: window.screen.height,
-      pixel_ratio: window.devicePixelRatio,
-    },
-    session: {
-      landing_page: window.location.pathname,
-      referer: document.referrer || undefined,
-      viewport_width: window.innerWidth,
-      viewport_height: window.innerHeight,
-    },
-  })
-  return response.data.token
-}
+  'No pudimos conectar con Emma.'
 
 export async function createChat(token: string): Promise<ChatRead> {
   const response = await apiClient.post<ChatRead>(
