@@ -85,29 +85,6 @@ async def update_answer(
     return AnswerRead.model_validate(answer)
 
 
-@router.get("", response_model=AnswerList)
-@limiter.limit(PRIVATE_RATE_LIMIT)
-async def list_answers(
-    request: Request,
-    limit: int = Query(10, ge=1, le=100),
-    offset: int = Query(0, ge=0),
-    token_payload: dict[str, Any] = Depends(get_token_payload),
-    db: AsyncSession = Depends(get_db),
-) -> AnswerList:
-    answers, total = await service.list_answers(
-        db,
-        token_payload.get("visitor_id"),
-        limit,
-        offset,
-    )
-    return AnswerList(
-        items=[AnswerRead.model_validate(a) for a in answers],
-        total=total,
-        limit=limit,
-        offset=offset,
-    )
-
-
 @router.get("/affinity", response_model=AffinityResponse)
 @limiter.limit(PRIVATE_RATE_LIMIT)
 async def get_affinity(
@@ -121,3 +98,28 @@ async def get_affinity(
         )
     except service.TestAttemptNotFoundError as e:
         raise HTTPException(status.HTTP_404_NOT_FOUND, str(e))
+
+
+@router.get("/{test_id}", response_model=AnswerList)
+@limiter.limit(PRIVATE_RATE_LIMIT)
+async def list_answers(
+    request: Request,
+    test_id: int = Path(gt=0),
+    limit: int = Query(10, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    token_payload: dict[str, Any] = Depends(get_token_payload),
+    db: AsyncSession = Depends(get_db),
+) -> AnswerList:
+    answers, total = await service.list_answers(
+        db,
+        token_payload.get("visitor_id"),
+        test_id,
+        limit,
+        offset,
+    )
+    return AnswerList(
+        items=[AnswerRead.model_validate(a) for a in answers],
+        total=total,
+        limit=limit,
+        offset=offset,
+    )

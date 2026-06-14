@@ -184,18 +184,22 @@ async def _get_attempt_for_visitor(
 
 
 async def _get_current_attempt_by_visitor(
-    db: AsyncSession, visitor_id: int | None
+    db: AsyncSession, visitor_id: int | None, test_id: int | None = None
 ) -> TestAttempt | None:
     if not visitor_id:
         return None
 
+    filters = [
+        TestAttempt.visitor_id == visitor_id,
+        TestAttempt.deleted_at.is_(None),
+    ]
+    if test_id is not None:
+        filters.append(TestAttempt.test_id == test_id)
+
     return (
         await db.execute(
             select(TestAttempt)
-            .where(
-                TestAttempt.visitor_id == visitor_id,
-                TestAttempt.deleted_at.is_(None),
-            )
+            .where(*filters)
             .order_by(TestAttempt.created_at.desc(), TestAttempt.id.desc())
             .limit(1)
         )
@@ -398,9 +402,9 @@ async def get_affinity(
 
 
 async def list_answers(
-    db: AsyncSession, visitor_id: int | None, limit: int, offset: int
+    db: AsyncSession, visitor_id: int | None, test_id: int, limit: int, offset: int
 ) -> tuple[list[Answer], int]:
-    attempt = await _get_current_attempt_by_visitor(db, visitor_id)
+    attempt = await _get_current_attempt_by_visitor(db, visitor_id, test_id)
     if attempt is None:
         return [], 0
 
