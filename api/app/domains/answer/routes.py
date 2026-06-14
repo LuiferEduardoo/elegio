@@ -20,7 +20,7 @@ router = APIRouter(prefix="/answers", tags=["answers"])
 
 
 @router.post(
-    "",
+    "/{test_attempt_id}",
     response_model=AnswerCreateResponse,
     status_code=status.HTTP_201_CREATED,
 )
@@ -28,12 +28,13 @@ router = APIRouter(prefix="/answers", tags=["answers"])
 async def create_answer(
     request: Request,
     payload: AnswerCreate,
+    test_attempt_id: int = Path(gt=0),
     token_payload: dict[str, Any] = Depends(get_token_payload),
     db: AsyncSession = Depends(get_db),
 ) -> AnswerCreateResponse:
     try:
         answer, test_completed, test_status = await service.create_answer(
-            db, payload, token_payload.get("visitor_id")
+            db, payload, token_payload.get("visitor_id"), test_attempt_id
         )
     except (
         service.TestAttemptNotFoundError,
@@ -55,18 +56,19 @@ async def create_answer(
     )
 
 
-@router.patch("/{answer_id}", response_model=AnswerRead)
+@router.patch("/{test_attempt_id}/{answer_id}", response_model=AnswerRead)
 @limiter.limit(PRIVATE_RATE_LIMIT)
 async def update_answer(
     request: Request,
     payload: AnswerUpdate,
+    test_attempt_id: int = Path(gt=0),
     answer_id: int = Path(gt=0),
     token_payload: dict[str, Any] = Depends(get_token_payload),
     db: AsyncSession = Depends(get_db),
 ) -> AnswerRead:
     try:
         answer = await service.update_answer(
-            db, answer_id, payload, token_payload.get("visitor_id")
+            db, answer_id, payload, token_payload.get("visitor_id"), test_attempt_id
         )
     except (
         service.AnswerNotFoundError,

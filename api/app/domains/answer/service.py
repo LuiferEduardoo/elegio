@@ -51,12 +51,15 @@ class ResponseOptionDoesNotBelongToQuestionError(Exception):
 
 
 async def create_answer(
-    db: AsyncSession, payload: AnswerCreate, visitor_id: int | None
+    db: AsyncSession,
+    payload: AnswerCreate,
+    visitor_id: int | None,
+    test_attempt_id: int,
 ) -> tuple[Answer, bool, TestStatus]:
-    attempt = await _get_current_attempt_by_visitor(db, visitor_id)
+    attempt = await _get_attempt_for_visitor(db, visitor_id, test_attempt_id)
     if attempt is None:
         raise TestAttemptNotFoundError(
-            f"No test attempt found for visitor {visitor_id}"
+            f"Test attempt {test_attempt_id} not found for visitor {visitor_id}"
         )
     if attempt.status != TestStatus.IN_PROGRESS:
         raise TestAttemptNotInProgressError(
@@ -120,16 +123,20 @@ async def create_answer(
 
 
 async def update_answer(
-    db: AsyncSession, answer_id: int, payload: AnswerUpdate, visitor_id: int | None
+    db: AsyncSession,
+    answer_id: int,
+    payload: AnswerUpdate,
+    visitor_id: int | None,
+    test_attempt_id: int,
 ) -> Answer:
     answer = await db.get(Answer, answer_id)
     if answer is None or answer.deleted_at is not None:
         raise AnswerNotFoundError(f"Answer {answer_id} not found")
 
-    attempt = await _get_current_attempt_by_visitor(db, visitor_id)
+    attempt = await _get_attempt_for_visitor(db, visitor_id, test_attempt_id)
     if attempt is None:
         raise TestAttemptNotFoundError(
-            f"No test attempt found for visitor {visitor_id}"
+            f"Test attempt {test_attempt_id} not found for visitor {visitor_id}"
         )
     if attempt.status != TestStatus.IN_PROGRESS:
         raise TestAttemptNotInProgressError(
@@ -158,6 +165,22 @@ async def update_answer(
     await db.commit()
     await db.refresh(answer)
     return answer
+
+
+async def _get_attempt_for_visitor(
+    db: AsyncSession, visitor_id: int | None, test_attempt_id: int
+) -> TestAttempt | None:
+    """Return the attempt only if it exists and belongs to the visitor."""
+    if not visitor_id:
+        return None
+    attempt = await db.get(TestAttempt, test_attempt_id)
+    if (
+        attempt is None
+        or attempt.deleted_at is not None
+        or attempt.visitor_id != visitor_id
+    ):
+        return None
+    return attempt
 
 
 async def _get_current_attempt_by_visitor(
