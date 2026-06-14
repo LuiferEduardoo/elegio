@@ -108,18 +108,20 @@ export async function getResponseOptionsByQuestion(
 
 export async function createAnswer({
   token,
+  testAttemptId,
   questionId,
   responseOptionId,
   responseTime,
 }: {
   token: string
+  testAttemptId: number
   questionId: number
   responseOptionId: number
   responseTime: number
 }): Promise<AnswerCreateResponse> {
   try {
     const response = await apiClient.post<AnswerCreateResponse>(
-      '/api/v1/answers',
+      `/api/v1/answers/${testAttemptId}`,
       {
         question_id: questionId,
         response_option_id: responseOptionId,

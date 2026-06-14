@@ -66,6 +66,7 @@ export function useTestFlow() {
   const [selectedOptions, setSelectedOptions] = useState<SelectedOptions>({})
   const [currentIndex, setCurrentIndex] = useState(0)
   const [token, setToken] = useState<string | null>(() => getVisitorTokenCookie())
+  const [testAttemptId, setTestAttemptId] = useState<number | null>(null)
   const [status, setStatus] = useState<TestFlowStatus>('loading')
   const [error, setError] = useState<string | null>(null)
   const [questionStartedAt, setQuestionStartedAt] = useState(() => Date.now())
@@ -115,6 +116,7 @@ export function useTestFlow() {
         const answeredByQuestion = mapAnswersByQuestion(answers)
         setActiveTest(testFromAttempt)
         setToken(storedToken)
+        setTestAttemptId(attempt.id)
         setQuestions(loadedQuestions)
         setSelectedOptions(answeredByQuestion)
 
@@ -173,13 +175,14 @@ export function useTestFlow() {
 
     try {
       const authToken = await getOrCreateVisitorToken()
-      const [, loadedQuestions] = await Promise.all([
+      const [attempt, loadedQuestions] = await Promise.all([
         initializeTestAttempt(activeTest.id, authToken),
         getQuestionsByTest(activeTest.id),
       ])
       const questionOptions = await loadQuestionOptions(loadedQuestions)
 
       setToken(authToken)
+      setTestAttemptId(attempt.id)
       setQuestions(loadedQuestions)
       setOptionsByQuestionId(questionOptions)
       setQuestionStartedAt(Date.now())
@@ -191,7 +194,7 @@ export function useTestFlow() {
   }
 
   async function submitCurrentAnswer() {
-    if (!token || !currentQuestion) return
+    if (!token || !testAttemptId || !currentQuestion) return
 
     const responseOptionId = selectedOptions[currentQuestion.id]
     if (responseOptionId === undefined) return
@@ -202,6 +205,7 @@ export function useTestFlow() {
     try {
       await createAnswer({
         token,
+        testAttemptId,
         questionId: currentQuestion.id,
         responseOptionId,
         responseTime: Date.now() - questionStartedAt,
