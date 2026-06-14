@@ -86,19 +86,20 @@ export function useTestFlow() {
           return
         }
 
+        const candidateTest = response.items[0]
         const storedToken = getVisitorTokenCookie()
         if (!storedToken) {
-          setActiveTest(response.items[0])
+          setActiveTest(candidateTest)
           setStatus('idle')
           return
         }
 
-        const attempt = await getCurrentTestAttempt(storedToken)
+        const attempt = await getCurrentTestAttempt(storedToken, candidateTest.id)
         if (!isMounted) return
 
         if (!attempt) {
           // The visitor token exists (chat/analytics) but no test was started yet.
-          setActiveTest(response.items[0])
+          setActiveTest(candidateTest)
           setStatus('idle')
           return
         }

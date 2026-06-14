@@ -45,11 +45,15 @@ export async function initializeTestAttempt(
 
 export async function getCurrentTestAttempt(
   token: string,
+  testId?: number,
 ): Promise<TestAttempt | null> {
   try {
     const response = await apiClient.get<TestAttempt>(
       '/api/v1/test-attempts',
-      { headers: { Authorization: `Bearer ${token}` } },
+      {
+        params: testId !== undefined ? { test_id: testId } : undefined,
+        headers: { Authorization: `Bearer ${token}` },
+      },
     )
     return response.data
   } catch (error) {
