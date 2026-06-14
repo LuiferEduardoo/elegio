@@ -1,6 +1,6 @@
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -45,13 +45,16 @@ async def initialize_test_attempt(
 @limiter.limit(PRIVATE_RATE_LIMIT)
 async def get_test_attempt_from_token(
     request: Request,
+    test_id: int | None = Query(default=None, gt=0),
     token_payload: dict[str, Any] = Depends(get_token_payload),
     db: AsyncSession = Depends(get_db),
 ) -> TestAttemptRead:
     visitor_id = _get_visitor_id(token_payload)
 
     try:
-        attempt = await service.get_current_test_attempt_by_visitor(db, visitor_id)
+        attempt = await service.get_current_test_attempt_by_visitor(
+            db, visitor_id, test_id
+        )
     except service.TestAttemptNotFoundError as e:
         raise HTTPException(status.HTTP_404_NOT_FOUND, str(e))
 

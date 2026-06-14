@@ -45,20 +45,25 @@ async def initialize_test_attempt(
 
 
 async def get_current_test_attempt_by_visitor(
-    db: AsyncSession, visitor_id: int
+    db: AsyncSession, visitor_id: int, test_id: int | None = None
 ) -> TestAttempt:
+    filters = [
+        TestAttempt.visitor_id == visitor_id,
+        TestAttempt.deleted_at.is_(None),
+    ]
+    if test_id is not None:
+        filters.append(TestAttempt.test_id == test_id)
+
     result = await db.execute(
         select(TestAttempt)
-        .where(
-            TestAttempt.visitor_id == visitor_id,
-            TestAttempt.deleted_at.is_(None),
-        )
+        .where(*filters)
         .order_by(TestAttempt.created_at.desc(), TestAttempt.id.desc())
         .limit(1)
     )
     attempt = result.scalar_one_or_none()
     if attempt is None:
-        raise TestAttemptNotFoundError(
-            f"No test attempt found for visitor {visitor_id}"
-        )
+        detail = f"No test attempt found for visitor {visitor_id}"
+        if test_id is not None:
+            detail += f" and test {test_id}"
+        raise TestAttemptNotFoundError(detail)
     return attempt
