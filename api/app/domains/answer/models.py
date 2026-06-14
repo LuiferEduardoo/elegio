@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, ForeignKey, Integer, Text
+from sqlalchemy import Boolean, Float, ForeignKey, Integer, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base, TimestampMixin
@@ -25,6 +25,7 @@ class Answer(Base, TimestampMixin):
 
     boolean_answer: Mapped[bool | None] = mapped_column(Boolean)
     open_text_answer: Mapped[str | None] = mapped_column(Text)
+    emotion_answer: Mapped[float | None] = mapped_column(Float)
 
     response_time: Mapped[int | None] = mapped_column(Integer)
 
