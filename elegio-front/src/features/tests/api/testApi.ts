@@ -66,12 +66,18 @@ export async function getCurrentTestAttempt(
   }
 }
 
-export async function getAnswers(token: string): Promise<AnswerListResponse> {
+export async function getAnswers(
+  token: string,
+  testId: number,
+): Promise<AnswerListResponse> {
   try {
-    const response = await apiClient.get<AnswerListResponse>('/api/v1/answers', {
-      params: { limit: 100 },
-      headers: { Authorization: `Bearer ${token}` },
-    })
+    const response = await apiClient.get<AnswerListResponse>(
+      `/api/v1/answers/${testId}`,
+      {
+        params: { limit: 100 },
+        headers: { Authorization: `Bearer ${token}` },
+      },
+    )
     return response.data
   } catch (error) {
     throw new Error(AUTH_ERROR_MESSAGE, { cause: error })

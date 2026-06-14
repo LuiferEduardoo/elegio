@@ -109,7 +109,7 @@ export function useTestFlow() {
           response.items.find((test) => test.id === attempt.test_id) ?? response.items[0]
         const [loadedQuestions, answers] = await Promise.all([
           getQuestionsByTest(attempt.test_id),
-          getAnswers(storedToken),
+          getAnswers(storedToken, attempt.test_id),
         ])
         if (!isMounted) return
 
