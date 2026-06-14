@@ -1,9 +1,10 @@
+import axios from 'axios'
+
 import { apiClient } from '../../../config/api'
 import type {
   AffinityResponse,
   AnswerCreateResponse,
   AnswerListResponse,
-  AuthTokenResponse,
   Question,
   QuestionListResponse,
   ResponseOption,
@@ -26,31 +27,6 @@ export async function getAvailableTests(): Promise<TestListResponse> {
   }
 }
 
-export async function createAuthToken(): Promise<string> {
-  try {
-    const response = await apiClient.post<AuthTokenResponse>('/api/v1/auth/token', {
-      visitor: {
-        primary_language: navigator.language,
-        languages: navigator.languages ? Array.from(navigator.languages) : undefined,
-        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-        consent_given: true,
-        screen_width: window.screen.width,
-        screen_height: window.screen.height,
-        pixel_ratio: window.devicePixelRatio,
-      },
-      session: {
-        landing_page: window.location.pathname,
-        referer: document.referrer || undefined,
-        viewport_width: window.innerWidth,
-        viewport_height: window.innerHeight,
-      },
-    })
-    return response.data.token
-  } catch (error) {
-    throw new Error(TEST_ERROR_MESSAGE, { cause: error })
-  }
-}
-
 export async function initializeTestAttempt(
   testId: number,
   token: string,
@@ -67,7 +43,9 @@ export async function initializeTestAttempt(
   }
 }
 
-export async function getCurrentTestAttempt(token: string): Promise<TestAttempt> {
+export async function getCurrentTestAttempt(
+  token: string,
+): Promise<TestAttempt | null> {
   try {
     const response = await apiClient.get<TestAttempt>(
       '/api/v1/test-attempts',
@@ -75,6 +53,11 @@ export async function getCurrentTestAttempt(token: string): Promise<TestAttempt>
     )
     return response.data
   } catch (error) {
+    // A visitor token can exist (from the chat or analytics) without any test
+    // attempt yet: a 404 just means the test hasn't been started.
+    if (axios.isAxiosError(error) && error.response?.status === 404) {
+      return null
+    }
     throw new Error(AUTH_ERROR_MESSAGE, { cause: error })
   }
 }

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { getAffinity, getCurrentTestAttempt } from '../api/testApi'
 import type { AffinityResponse } from '../types'
-import { getTestTokenCookie } from '../utils/testTokenCookie'
+import { getVisitorTokenCookie } from '../../../utils/visitorToken'
 
 export type AffinityResultStatus = 'loading' | 'ready' | 'empty' | 'error'
 
@@ -18,11 +18,11 @@ type AffinityResultState = {
 export function useAffinityResult(): AffinityResultState {
   const [state, setState] = useState<AffinityResultState>(() => ({
     affinity: null,
-    status: getTestTokenCookie() ? 'loading' : 'empty',
+    status: getVisitorTokenCookie() ? 'loading' : 'empty',
   }))
 
   useEffect(() => {
-    const token = getTestTokenCookie()
+    const token = getVisitorTokenCookie()
     if (!token) return
 
     let isMounted = true
@@ -32,7 +32,7 @@ export function useAffinityResult(): AffinityResultState {
         const attempt = await getCurrentTestAttempt(authToken)
         if (!isMounted) return
 
-        if (attempt.status !== 'completed') {
+        if (!attempt || attempt.status !== 'completed') {
           setState({ affinity: null, status: 'empty' })
           return
         }

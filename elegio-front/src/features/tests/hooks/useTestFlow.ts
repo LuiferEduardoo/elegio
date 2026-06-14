@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   createAnswer,
-  createAuthToken,
   getAffinity,
   getAnswers,
   getAvailableTests,
@@ -12,10 +11,9 @@ import {
 } from '../api/testApi'
 import type { AffinityResponse, Question, ResponseOption, Test } from '../types'
 import {
-  clearTestTokenCookie,
-  getTestTokenCookie,
-  setTestTokenCookie,
-} from '../utils/testTokenCookie'
+  getOrCreateVisitorToken,
+  getVisitorTokenCookie,
+} from '../../../utils/visitorToken'
 
 export type TestFlowStatus =
   | 'idle'
@@ -67,7 +65,7 @@ export function useTestFlow() {
   const [optionsByQuestionId, setOptionsByQuestionId] = useState<OptionsByQuestionId>({})
   const [selectedOptions, setSelectedOptions] = useState<SelectedOptions>({})
   const [currentIndex, setCurrentIndex] = useState(0)
-  const [token, setToken] = useState<string | null>(() => getTestTokenCookie())
+  const [token, setToken] = useState<string | null>(() => getVisitorTokenCookie())
   const [status, setStatus] = useState<TestFlowStatus>('loading')
   const [error, setError] = useState<string | null>(null)
   const [questionStartedAt, setQuestionStartedAt] = useState(() => Date.now())
@@ -88,7 +86,7 @@ export function useTestFlow() {
           return
         }
 
-        const storedToken = getTestTokenCookie()
+        const storedToken = getVisitorTokenCookie()
         if (!storedToken) {
           setActiveTest(response.items[0])
           setStatus('idle')
@@ -97,6 +95,13 @@ export function useTestFlow() {
 
         const attempt = await getCurrentTestAttempt(storedToken)
         if (!isMounted) return
+
+        if (!attempt) {
+          // The visitor token exists (chat/analytics) but no test was started yet.
+          setActiveTest(response.items[0])
+          setStatus('idle')
+          return
+        }
 
         const testFromAttempt =
           response.items.find((test) => test.id === attempt.test_id) ?? response.items[0]
@@ -130,7 +135,8 @@ export function useTestFlow() {
         setStatus('ready')
       } catch (loadError) {
         if (!isMounted) return
-        clearTestTokenCookie()
+        // Keep the shared visitor token (also used by the chat and analytics);
+        // just drop the local reference so the user can start over.
         setToken(null)
         setError(loadError instanceof Error ? loadError.message : 'No pudimos cargar el test.')
         setStatus('error')
@@ -165,14 +171,13 @@ export function useTestFlow() {
     setCurrentIndex(0)
 
     try {
-      const authToken = await createAuthToken()
+      const authToken = await getOrCreateVisitorToken()
       const [, loadedQuestions] = await Promise.all([
         initializeTestAttempt(activeTest.id, authToken),
         getQuestionsByTest(activeTest.id),
       ])
       const questionOptions = await loadQuestionOptions(loadedQuestions)
 
-      setTestTokenCookie(authToken)
       setToken(authToken)
       setQuestions(loadedQuestions)
       setOptionsByQuestionId(questionOptions)

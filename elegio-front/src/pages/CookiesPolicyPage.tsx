@@ -34,7 +34,7 @@ export function CookiesPolicyPage() {
           </h2>
           <p className="mt-4 text-base leading-7">
             En Elegio <strong className="text-ink">no usamos cookies de rastreo, de terceros ni con fines publicitarios.</strong>
-            Únicamente utilizamos cookies técnicas y estrictamente necesarias:
+            Únicamente utilizamos una cookie técnica y estrictamente necesaria:
           </p>
 
           <div className="mt-6 overflow-hidden rounded-2xl border border-coffee/10 bg-white shadow-sm">
@@ -48,18 +48,10 @@ export function CookiesPolicyPage() {
               </thead>
               <tbody className="divide-y divide-coffee/10 text-muted">
                 <tr>
-                  <td className="px-4 py-3 font-mono text-xs">elegio_test_token</td>
-                  <td className="px-4 py-3">
-                    Identificador anónimo temporal. Se utiliza exclusivamente para guardar el progreso de tu "Match electoral" (el test) y poder calcular tus resultados finales.
-                    Sin esta cookie, perderías tu progreso en el test al recargar la página.
-                  </td>
-                  <td className="px-4 py-3">1 mes</td>
-                </tr>
-                <tr>
                   <td className="px-4 py-3 font-mono text-xs">elegio_visitor_token</td>
                   <td className="px-4 py-3">
-                    Identificador anónimo temporal del asistente Emma. Permite asociar tu conversación para mantener el contexto y reanudarla si recargas la página.
-                    Sin esta cookie, no podrías chatear con Emma.
+                    Identificador anónimo temporal del visitante. Se utiliza para guardar el progreso de tu "Match electoral" (el test) y calcular tus resultados, mantener tu conversación con Emma, y registrar de forma anónima cómo se usa la plataforma.
+                    Sin esta cookie, no podrías realizar el test ni chatear con Emma.
                   </td>
                   <td className="px-4 py-3">1 mes</td>
                 </tr>
