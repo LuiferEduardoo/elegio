@@ -9,6 +9,7 @@ class TestRead(BaseModel):
     id: int
     name: str
     description: str | None
+    image_url: str | None
     created_at: datetime
 
 
