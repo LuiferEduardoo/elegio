@@ -27,6 +27,7 @@ class Question(Base, TimestampMixin):
         ForeignKey("categories.id", ondelete="RESTRICT")
     )
     title: Mapped[str] = mapped_column(Text, nullable=False)
+    description: Mapped[str | None] = mapped_column(Text)
     type_question: Mapped[QuestionType] = mapped_column(
         Enum(QuestionType, name="question_type"), nullable=False
     )

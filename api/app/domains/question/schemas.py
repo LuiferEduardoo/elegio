@@ -19,6 +19,7 @@ class QuestionRead(BaseModel):
     id: int
     test_id: int
     title: str
+    description: str | None
     type_question: QuestionType
     question_order: int
     is_active: bool
