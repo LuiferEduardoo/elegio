@@ -121,7 +121,7 @@ export function useTestFlow() {
         setSelectedOptions(answeredByQuestion)
 
         if (attempt.status === 'completed') {
-          const result = await getAffinity(storedToken)
+          const result = await getAffinity(storedToken, attempt.test_id)
           if (!isMounted) return
           setAffinity(result)
           setCurrentIndex(Math.max(loadedQuestions.length - 1, 0))
@@ -194,7 +194,7 @@ export function useTestFlow() {
   }
 
   async function submitCurrentAnswer() {
-    if (!token || !testAttemptId || !currentQuestion) return
+    if (!token || !testAttemptId || !activeTest || !currentQuestion) return
 
     const responseOptionId = selectedOptions[currentQuestion.id]
     if (responseOptionId === undefined) return
@@ -218,7 +218,7 @@ export function useTestFlow() {
         return
       }
 
-      const result = await getAffinity(token)
+      const result = await getAffinity(token, activeTest.id)
       setAffinity(result)
       setStatus('finished')
     } catch (submitError) {

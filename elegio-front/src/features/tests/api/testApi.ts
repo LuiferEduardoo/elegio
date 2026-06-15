@@ -141,11 +141,15 @@ export async function createAnswer({
   }
 }
 
-export async function getAffinity(token: string): Promise<AffinityResponse> {
+export async function getAffinity(
+  token: string,
+  testId: number,
+): Promise<AffinityResponse> {
   try {
-    const response = await apiClient.get<AffinityResponse>('/api/v1/answers/affinity', {
-      headers: { Authorization: `Bearer ${token}` },
-    })
+    const response = await apiClient.get<AffinityResponse>(
+      `/api/v1/answers/affinity/${testId}`,
+      { headers: { Authorization: `Bearer ${token}` } },
+    )
     return response.data
   } catch (error) {
     throw new Error(AUTH_ERROR_MESSAGE, { cause: error })

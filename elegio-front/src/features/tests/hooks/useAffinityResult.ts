@@ -37,7 +37,7 @@ export function useAffinityResult(): AffinityResultState {
           return
         }
 
-        const affinity = await getAffinity(authToken)
+        const affinity = await getAffinity(authToken, attempt.test_id)
         if (!isMounted) return
 
         setState({ affinity, status: 'ready' })
