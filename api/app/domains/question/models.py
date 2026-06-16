@@ -4,6 +4,7 @@ from sqlalchemy import Boolean, Enum, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base, TimestampMixin
+from app.domains.candidate.models import Candidate
 from app.domains.category.models import Category
 from app.domains.test.models import Test
 
@@ -26,6 +27,9 @@ class Question(Base, TimestampMixin):
     category_id: Mapped[int | None] = mapped_column(
         ForeignKey("categories.id", ondelete="RESTRICT")
     )
+    candidate_id: Mapped[int | None] = mapped_column(
+        ForeignKey("candidates.id", ondelete="SET NULL")
+    )
     title: Mapped[str] = mapped_column(Text, nullable=False)
     description: Mapped[str | None] = mapped_column(Text)
     type_question: Mapped[QuestionType] = mapped_column(
@@ -37,3 +41,4 @@ class Question(Base, TimestampMixin):
 
     test: Mapped[Test] = relationship()
     category: Mapped[Category | None] = relationship()
+    candidate: Mapped[Candidate | None] = relationship()
