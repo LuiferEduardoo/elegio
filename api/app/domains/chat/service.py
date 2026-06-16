@@ -209,6 +209,9 @@ def _format_context(docs) -> str:
             attribution.append(meta["media_outlet"])
         if meta.get("publishing_house"):
             attribution.append(meta["publishing_house"])
+        url = meta.get("url") or meta.get("url_video_audio")
+        if url:
+            attribution.append(f"URL: {url}")
         blocks.append(f"[{i}] ({' — '.join(attribution)})\n{doc.page_content}")
     return "\n\n".join(blocks)
 
