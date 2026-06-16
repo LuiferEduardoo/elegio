@@ -3,7 +3,7 @@ from datetime import datetime
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.domains.answer.affinity_political_spectrum import Affinity
+from app.domains.answer.affinity import Affinity
 from app.domains.answer.models import Answer
 from app.domains.answer.schemas import (
     AffinityResponse,
@@ -252,7 +252,7 @@ async def get_affinity(
 
     The scoring formula depends on the test's ``type``: ``POLITICAL_SPECTRUM``
     uses the Weighted Manhattan Distance in
-    :mod:`app.domains.answer.affinity_political_spectrum`.
+    :mod:`app.domains.answer.affinity`.
     """
     test = await db.get(Test, test_id)
     if test is None or test.deleted_at is not None:
@@ -266,6 +266,9 @@ async def get_affinity(
 
     if test.type == TestType.POLITICAL_SPECTRUM:
         return await Affinity.compute_political_spectrum_affinity(db, attempt)
+
+    if test.type == TestType.PROGRAMMATIC_ALIGNMENT:
+        return await Affinity.compute_programmatic_alignment_affinity(db, attempt)
 
     raise UnsupportedTestTypeError(
         f"Affinity is not available for test type {test.type}"
