@@ -1,10 +1,14 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router'
 
 import { ChatWindow } from '../features/chat/components/ChatWindow'
 import { useEmmaChat } from '../features/chat/hooks/useEmmaChat'
 
 type ChatUrlState = 'open' | 'full'
+
+type ExplainQuestionEventDetail = {
+  prompt: string
+}
 
 const EMMA_MESSAGES = [
   'Evita la desinformación. Pregúntale a Emma y descubre qué es real en las propuestas de los candidatos.',
@@ -31,7 +35,7 @@ export function FloatingEmmaButton() {
   const isOpen = chatState === 'open' || chatState === 'full'
   const isFullscreen = chatState === 'full'
 
-  const setChat = (value: ChatUrlState | null) => {
+  const setChat = useCallback((value: ChatUrlState | null) => {
     setSearchParams(
       (prev) => {
         const next = new URLSearchParams(prev)
@@ -41,7 +45,7 @@ export function FloatingEmmaButton() {
       },
       { replace: true },
     )
-  }
+  }, [setSearchParams])
 
   useEffect(() => {
     if (!showBubble || isOpen) return
@@ -64,8 +68,21 @@ export function FloatingEmmaButton() {
     return () => clearTimeout(timer)
   }, [isExiting])
 
+  useEffect(() => {
+    const handleExplainQuestion = (event: Event) => {
+      const { prompt } = (event as CustomEvent<ExplainQuestionEventDetail>).detail
+      if (!prompt) return
+
+      setChat('open')
+      void chat.sendMessage(prompt)
+    }
+
+    window.addEventListener('emma:explain-question', handleExplainQuestion)
+    return () => window.removeEventListener('emma:explain-question', handleExplainQuestion)
+  }, [chat, setChat])
+
   return (
-    <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3">
+    <div className="fixed bottom-[calc(env(safe-area-inset-bottom)+1rem)] right-4 z-50 flex flex-col items-end gap-3 sm:bottom-6 sm:right-6">
       {isOpen ? (
         <ChatWindow
           onClose={() => setChat(null)}
@@ -79,7 +96,7 @@ export function FloatingEmmaButton() {
         />
       ) : (
         showBubble && (
-          <div className="relative mr-1 max-w-xs animate-fade-in rounded-2xl rounded-br-sm bg-white px-4 py-3 text-sm text-ink shadow-xl ring-1 ring-black/5">
+          <div className="relative mr-1 hidden max-w-xs animate-fade-in rounded-2xl rounded-br-sm bg-white px-4 py-3 text-sm text-ink shadow-xl ring-1 ring-black/5 sm:block">
             <button
               type="button"
               aria-label="Cerrar mensaje"
@@ -103,7 +120,7 @@ export function FloatingEmmaButton() {
         type="button"
         aria-label={isOpen ? 'Cerrar asistente Emma' : 'Abrir asistente Emma'}
         onClick={() => setChat(isOpen ? null : 'open')}
-        className="group relative flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full shadow-lg transition-all duration-300 hover:scale-105 hover:shadow-[0_0_25px_4px_rgba(37,99,235,0.6)] focus:outline-none focus-visible:ring-4 focus-visible:ring-white/40"
+        className="group relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full shadow-lg transition-all duration-300 hover:scale-105 hover:shadow-[0_0_25px_4px_rgba(37,99,235,0.6)] focus:outline-none focus-visible:ring-4 focus-visible:ring-white/40 sm:h-16 sm:w-16"
         style={{ backgroundColor: '#2563eb' }}
       >
         <img
