@@ -38,6 +38,7 @@ export type Question = {
     | 'only_option'
     | 'open_question'
     | 'video_emotion_slider'
+  candidate_id: number | null
   video_url: string | null
   question_order: number
   is_active: boolean

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 
-import type { TestFlowStatus } from '../hooks/useTestFlow'
+import type { TestFlowStatus, TestIntroStats } from '../hooks/useTestFlow'
 import type { Test } from '../types'
 import { normalizeMojibake } from '../utils/text'
 
@@ -9,6 +9,7 @@ type MatchTestIntroProps = {
   status: TestFlowStatus
   error: string | null
   tests: Test[]
+  stats: TestIntroStats | null
   onStart: () => void
   onSelectTest: (testId: number) => void
 }
@@ -22,6 +23,7 @@ export function MatchTestIntro({
   status,
   error,
   tests,
+  stats,
   onStart,
   onSelectTest,
 }: MatchTestIntroProps) {
@@ -59,11 +61,21 @@ export function MatchTestIntro({
             </div>
           )}
 
-          <ul className="mt-4 flex flex-wrap gap-1.5 text-[0.68rem] font-bold text-ink sm:mt-7 sm:gap-2.5 sm:text-xs">
-            <li className="rounded-full bg-jade/10 px-3 py-1.5 text-jade sm:px-3.5 sm:py-2">24 preguntas</li>
-            <li className="rounded-full bg-clay/10 px-3 py-1.5 text-clay sm:px-3.5 sm:py-2">2 finalistas</li>
-            <li className="rounded-full bg-coffee/10 px-3 py-1.5 text-coffee sm:px-3.5 sm:py-2">~4 min</li>
-          </ul>
+          {stats && (
+            <ul className="mt-4 flex flex-wrap gap-1.5 text-[0.68rem] font-bold text-ink sm:mt-7 sm:gap-2.5 sm:text-xs">
+              <li className="rounded-full bg-jade/10 px-3 py-1.5 text-jade sm:px-3.5 sm:py-2">
+                {stats.questions} {stats.questions === 1 ? 'pregunta' : 'preguntas'}
+              </li>
+              {stats.finalists > 0 && (
+                <li className="rounded-full bg-clay/10 px-3 py-1.5 text-clay sm:px-3.5 sm:py-2">
+                  {stats.finalists} {stats.finalists === 1 ? 'finalista' : 'finalistas'}
+                </li>
+              )}
+              <li className="rounded-full bg-coffee/10 px-3 py-1.5 text-coffee sm:px-3.5 sm:py-2">
+                ~{stats.minutes} min
+              </li>
+            </ul>
+          )}
 
           {error && (
             <p className="mt-6 rounded-2xl bg-clay px-4 py-3 text-sm font-bold text-white">{error}</p>

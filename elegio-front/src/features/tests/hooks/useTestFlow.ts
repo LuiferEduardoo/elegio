@@ -33,6 +33,28 @@ type OptionsByQuestionId = Record<number, ResponseOption[]>
 type SelectedOptions = Record<number, number>
 type EmotionByQuestionId = Record<number, number>
 
+export type TestIntroStats = {
+  questions: number
+  finalists: number
+  minutes: number
+}
+
+const SECONDS_PER_QUESTION = 10
+
+function buildIntroStats(questions: Question[]): TestIntroStats {
+  const finalists = new Set(
+    questions
+      .map((question) => question.candidate_id)
+      .filter((id): id is number => id !== null),
+  ).size
+
+  return {
+    questions: questions.length,
+    finalists,
+    minutes: Math.max(1, Math.round((questions.length * SECONDS_PER_QUESTION) / 60)),
+  }
+}
+
 function isEmotionQuestion(question: Question): boolean {
   return question.type_question === 'video_emotion_slider'
 }
@@ -96,6 +118,25 @@ export function useTestFlow() {
   const [error, setError] = useState<string | null>(null)
   const [questionStartedAt, setQuestionStartedAt] = useState(() => Date.now())
   const [affinity, setAffinity] = useState<AffinityResponse | null>(null)
+  const [introStats, setIntroStats] = useState<TestIntroStats | null>(null)
+
+  // Load the active test's question stats for the intro chips.
+  useEffect(() => {
+    if (!activeTest || status !== 'idle') return
+
+    let isMounted = true
+    getQuestionsByTest(activeTest.id)
+      .then((loadedQuestions) => {
+        if (isMounted) setIntroStats(buildIntroStats(loadedQuestions))
+      })
+      .catch(() => {
+        if (isMounted) setIntroStats(null)
+      })
+
+    return () => {
+      isMounted = false
+    }
+  }, [activeTest, status])
 
   useEffect(() => {
     let isMounted = true
@@ -349,6 +390,7 @@ export function useTestFlow() {
     questions,
     selectedOptions,
     emotionByQuestion,
+    introStats,
     status,
     tests,
     topCandidates,

@@ -32,6 +32,7 @@ export function MatchElectoralPage() {
               status={testFlow.status}
               error={testFlow.error}
               tests={testFlow.tests}
+              stats={testFlow.introStats}
               onStart={testFlow.startTest}
               onSelectTest={testFlow.selectTest}
             />
