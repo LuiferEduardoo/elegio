@@ -24,7 +24,7 @@ export function ResultsPage() {
     <div className="flex min-h-screen flex-col bg-surface text-ink">
       <NavBar />
       <main className="flex-grow">
-        <div className="mx-auto w-full max-w-6xl px-6 py-14 sm:px-10 lg:px-16">
+        <div className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-10 sm:py-14 lg:px-16">
           {status === 'loading' && <ResultsMessage title="Cargando tus resultados…" />}
 
           {status === 'empty' && (
@@ -53,7 +53,7 @@ export function ResultsPage() {
                 <p className="text-xs font-black uppercase tracking-[0.3em] text-clay">
                   Tus resultados
                 </p>
-                <h1 className="mt-3 font-display text-4xl tracking-[-0.04em] sm:text-5xl">
+                <h1 className="mt-3 font-display text-3xl tracking-[-0.04em] sm:text-4xl lg:text-5xl">
                   Tu mapa político completo
                 </h1>
                 <p className="mt-4 text-sm leading-6 text-muted">

@@ -16,7 +16,7 @@ export function AffinityWinnerCard({ candidate }: AffinityWinnerCardProps) {
     : null
 
   return (
-    <article className="relative overflow-hidden bg-ink p-6 text-white sm:p-8 lg:p-10">
+    <article className="relative overflow-hidden bg-ink p-5 text-white sm:p-8 lg:p-10">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(255,255,255,0.18),transparent_28%),radial-gradient(circle_at_80%_0%,rgba(107,183,162,0.28),transparent_26%)]" />
       <div className="relative z-10 flex h-full flex-col">
         <p className="text-xs font-black uppercase tracking-[0.28em] text-white/65">Mayor afinidad</p>
@@ -37,7 +37,7 @@ export function AffinityWinnerCard({ candidate }: AffinityWinnerCardProps) {
             <span className="rounded-full bg-white px-4 py-1.5 text-xs font-black uppercase tracking-[0.18em] text-ink">
               {formatPercent(candidate.affinity)} match
             </span>
-            <h2 className="mt-4 font-display text-4xl leading-[0.95] tracking-[-0.05em] sm:text-5xl">
+            <h2 className="mt-4 font-display text-3xl leading-[0.95] tracking-[-0.05em] sm:text-4xl lg:text-5xl">
               {name}
             </h2>
             <p className="mt-3 text-sm font-semibold leading-6 text-white/75">

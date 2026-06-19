@@ -25,7 +25,7 @@ export function ComparisonSpectrumBar({ category, userAverage }: ComparisonSpect
     value >= 0.15 ? positivePole : value <= -0.15 ? negativePole : 'Postura neutral'
 
   return (
-    <article className="rounded-3xl border border-coffee/10 bg-white p-4 shadow-sm shadow-coffee/5 sm:p-5">
+    <article className="min-w-0 rounded-3xl border border-coffee/10 bg-white p-4 shadow-sm shadow-coffee/5 sm:p-5">
       <header className="flex flex-wrap items-center justify-between gap-2">
         <p className="min-w-0 flex-1 truncate text-xs font-black uppercase tracking-[0.3em] text-clay">
           {normalizeMojibake(category.category_name)}
@@ -70,11 +70,11 @@ export function ComparisonSpectrumBar({ category, userAverage }: ComparisonSpect
           {hasUser && <span className="text-muted">Distancia {gap.toFixed(2)}</span>}
         </div>
 
-        <div className="mt-4 flex items-start justify-between gap-3 text-[0.55rem] font-black uppercase tracking-[0.16em] sm:text-[0.6rem] sm:tracking-[0.2em]">
-          <span className="min-w-0 max-w-[45%] truncate text-coffee">
+        <div className="mt-4 flex items-start justify-between gap-3 text-[0.55rem] font-black uppercase tracking-[0.13em] sm:text-[0.6rem] sm:tracking-[0.2em]">
+          <span className="min-w-0 max-w-[46%] truncate text-coffee">
             ◀ {normalizeMojibake(category.negative_pole_name)}
           </span>
-          <span className="min-w-0 max-w-[45%] truncate text-right text-jade">
+          <span className="min-w-0 max-w-[46%] truncate text-right text-jade">
             {normalizeMojibake(category.positive_pole_name)} ▶
           </span>
         </div>
