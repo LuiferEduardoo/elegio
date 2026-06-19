@@ -76,9 +76,13 @@ export function MatchQuestionStep({
     if (question.category) {
       promptParts.push(`Categoría: ${normalizeMojibake(question.category.name)}`)
     }
+    if (question.candidate) {
+      promptParts.push(`Candidato: ${normalizeMojibake(question.candidate.presidential_candidate)}`)
+    }
     if (description) {
       promptParts.push(`Descripción: ${description}`)
     }
+    promptParts.push('Trata de explicarla en lenguaje simple y sin sesgo político.')
 
     const event = new CustomEvent('emma:explain-question', {
       detail: {
