@@ -42,6 +42,7 @@ export function MatchElectoralPage() {
               question={testFlow.currentQuestion}
               options={testFlow.currentOptions}
               selectedOptionId={testFlow.selectedOptions[testFlow.currentQuestion.id]}
+              selectedEmotion={testFlow.emotionByQuestion[testFlow.currentQuestion.id]}
               currentIndex={testFlow.currentIndex}
               totalQuestions={testFlow.questions.length}
               answeredCount={testFlow.answeredCount}
@@ -49,6 +50,7 @@ export function MatchElectoralPage() {
               status={testFlow.status}
               error={testFlow.error}
               onSelectOption={testFlow.selectOption}
+              onSelectEmotion={testFlow.selectEmotion}
               onSubmit={testFlow.submitCurrentAnswer}
             />
           )}

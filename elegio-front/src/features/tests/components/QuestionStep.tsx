@@ -1,6 +1,7 @@
 import type { TestFlowStatus } from '../hooks/useTestFlow'
 import type { Question, ResponseOption } from '../types'
 import { normalizeMojibake } from '../utils/text'
+import { QuestionVideo } from './QuestionVideo'
 
 type QuestionStepProps = {
   canSubmit: boolean
@@ -43,6 +44,12 @@ export function QuestionStep({
       <h2 className="mt-8 text-3xl font-black leading-tight tracking-[-0.03em] text-ink">
         {normalizeMojibake(question.title)}
       </h2>
+
+      {question.video_url && (
+        <div className="mt-8">
+          <QuestionVideo url={question.video_url} />
+        </div>
+      )}
 
       <div className="mt-8 grid gap-3">
         {options.map((option) => {

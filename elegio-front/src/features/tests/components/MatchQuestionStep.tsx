@@ -2,11 +2,13 @@ import { useCallback, useState } from 'react'
 import type { TestFlowStatus } from '../hooks/useTestFlow'
 import type { Question, ResponseOption } from '../types'
 import { normalizeMojibake } from '../utils/text'
+import { QuestionVideo } from './QuestionVideo'
 
 type MatchQuestionStepProps = {
   question: Question
   options: ResponseOption[]
   selectedOptionId: number | undefined
+  selectedEmotion: number | undefined
   currentIndex: number
   totalQuestions: number
   answeredCount: number
@@ -14,8 +16,15 @@ type MatchQuestionStepProps = {
   status: TestFlowStatus
   error: string | null
   onSelectOption: (questionId: number, optionId: number) => void
+  onSelectEmotion: (questionId: number, value: number) => void
   onSubmit: () => void
 }
+
+const EMOTION_OPTIONS = [
+  { value: -1, emoji: '😠', label: 'Me genera rechazo' },
+  { value: 0, emoji: '😐', label: 'Me deja neutral' },
+  { value: 1, emoji: '😊', label: 'Me genera empatía' },
+]
 
 /** Tints an option by the sign of its value: agree (jade) / neutral / against (clay). */
 function optionTone(value: number, selected: boolean) {
@@ -31,6 +40,7 @@ export function MatchQuestionStep({
   question,
   options,
   selectedOptionId,
+  selectedEmotion,
   currentIndex,
   totalQuestions,
   answeredCount,
@@ -38,10 +48,19 @@ export function MatchQuestionStep({
   status,
   error,
   onSelectOption,
+  onSelectEmotion,
   onSubmit,
 }: MatchQuestionStepProps) {
   const progress = totalQuestions > 0 ? answeredCount / totalQuestions : 0
   const isLast = currentIndex === totalQuestions - 1
+  const isEmotion = question.type_question === 'video_emotion_slider'
+  const emotionValue = selectedEmotion ?? 0
+  const activeEmotion =
+    emotionValue <= -0.34
+      ? EMOTION_OPTIONS[0]
+      : emotionValue >= 0.34
+        ? EMOTION_OPTIONS[2]
+        : EMOTION_OPTIONS[1]
   const description = question.description ? normalizeMojibake(question.description) : null
 
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false)
@@ -114,6 +133,12 @@ export function MatchQuestionStep({
           </div>
         )}
 
+        {question.video_url && (
+          <div className="mt-4 sm:mt-6">
+            <QuestionVideo url={question.video_url} />
+          </div>
+        )}
+
         <button
           type="button"
           onClick={handleAskEmma}
@@ -133,32 +158,72 @@ export function MatchQuestionStep({
           <span className="shrink-0 text-jade transition group-hover:translate-x-0.5">→</span>
         </button>
 
-        <div className="mt-5 grid gap-2 sm:mt-8 sm:gap-3">
-          {options.map((option) => {
-            const isSelected = selectedOptionId === option.id
-            return (
-              <button
-                key={option.id}
-                type="button"
-                onClick={() => onSelectOption(question.id, option.id)}
-                aria-pressed={isSelected}
-                className={`flex items-center justify-between rounded-xl border px-4 py-3 text-left transition sm:rounded-2xl sm:px-5 sm:py-4 ${optionTone(
-                  option.value,
-                  isSelected,
-                )}`}
-              >
-                <span className="text-sm font-black sm:text-base">{normalizeMojibake(option.title)}</span>
-                <span
-                  className={`grid size-4 shrink-0 place-items-center rounded-full border-2 sm:size-5 ${
-                    isSelected ? 'border-white' : 'border-coffee/25'
-                  }`}
+        {isEmotion ? (
+          <div className="mt-6 sm:mt-8">
+            <div className="flex items-end justify-between px-1">
+              {EMOTION_OPTIONS.map((emotion) => {
+                const isActive = activeEmotion.value === emotion.value
+                return (
+                  <span
+                    key={emotion.value}
+                    className={`flex flex-col items-center gap-1 transition ${
+                      isActive ? 'scale-110' : 'opacity-50'
+                    }`}
+                  >
+                    <span className="text-2xl sm:text-3xl" aria-hidden="true">
+                      {emotion.emoji}
+                    </span>
+                    <span className="text-[0.65rem] font-bold uppercase tracking-wide text-muted sm:text-xs">
+                      {emotion.label}
+                    </span>
+                  </span>
+                )
+              })}
+            </div>
+            <input
+              type="range"
+              min={-1}
+              max={1}
+              step={0.01}
+              value={emotionValue}
+              onChange={(event) =>
+                onSelectEmotion(question.id, Number(event.target.value))
+              }
+              aria-label="¿Qué te genera este video?"
+              className="mt-4 w-full cursor-pointer accent-clay"
+            />
+            <p className="mt-4 text-center text-sm font-black text-ink">
+              <span aria-hidden="true">{activeEmotion.emoji}</span> {activeEmotion.label}
+            </p>
+          </div>
+        ) : (
+          <div className="mt-5 grid gap-2 sm:mt-8 sm:gap-3">
+            {options.map((option) => {
+              const isSelected = selectedOptionId === option.id
+              return (
+                <button
+                  key={option.id}
+                  type="button"
+                  onClick={() => onSelectOption(question.id, option.id)}
+                  aria-pressed={isSelected}
+                  className={`flex items-center justify-between rounded-xl border px-4 py-3 text-left transition sm:rounded-2xl sm:px-5 sm:py-4 ${optionTone(
+                    option.value,
+                    isSelected,
+                  )}`}
                 >
-                  {isSelected && <span className="size-1.5 rounded-full bg-white sm:size-2" />}
-                </span>
-              </button>
-            )
-          })}
-        </div>
+                  <span className="text-sm font-black sm:text-base">{normalizeMojibake(option.title)}</span>
+                  <span
+                    className={`grid size-4 shrink-0 place-items-center rounded-full border-2 sm:size-5 ${
+                      isSelected ? 'border-white' : 'border-coffee/25'
+                    }`}
+                  >
+                    {isSelected && <span className="size-1.5 rounded-full bg-white sm:size-2" />}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        )}
 
         {error && <p className="mt-4 font-bold text-clay sm:mt-5">{error}</p>}
 

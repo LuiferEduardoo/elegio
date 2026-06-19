@@ -31,6 +31,11 @@ export type TestFlowStatus =
 
 type OptionsByQuestionId = Record<number, ResponseOption[]>
 type SelectedOptions = Record<number, number>
+type EmotionByQuestionId = Record<number, number>
+
+function isEmotionQuestion(question: Question): boolean {
+  return question.type_question === 'video_emotion_slider'
+}
 
 async function loadQuestionOptions(questions: Question[]): Promise<OptionsByQuestionId> {
   const entries = await Promise.all(
@@ -53,12 +58,25 @@ function mapAnswersByQuestion(
   )
 }
 
+function mapEmotionByQuestion(
+  answers: Awaited<ReturnType<typeof getAnswers>>,
+): EmotionByQuestionId {
+  return Object.fromEntries(
+    answers.items
+      .filter((answer) => answer.emotion_answer !== null)
+      .map((answer) => [answer.question_id, answer.emotion_answer as number]),
+  )
+}
+
 function getFirstUnansweredIndex(
   questions: Question[],
   selectedOptions: SelectedOptions,
+  emotionByQuestion: EmotionByQuestionId,
 ): number {
-  const index = questions.findIndex(
-    (question) => selectedOptions[question.id] === undefined,
+  const index = questions.findIndex((question) =>
+    isEmotionQuestion(question)
+      ? emotionByQuestion[question.id] === undefined
+      : selectedOptions[question.id] === undefined,
   )
 
   return index === -1 ? 0 : index
@@ -70,6 +88,7 @@ export function useTestFlow() {
   const [questions, setQuestions] = useState<Question[]>([])
   const [optionsByQuestionId, setOptionsByQuestionId] = useState<OptionsByQuestionId>({})
   const [selectedOptions, setSelectedOptions] = useState<SelectedOptions>({})
+  const [emotionByQuestion, setEmotionByQuestion] = useState<EmotionByQuestionId>({})
   const [currentIndex, setCurrentIndex] = useState(0)
   const [token, setToken] = useState<string | null>(() => getVisitorTokenCookie())
   const [testAttemptId, setTestAttemptId] = useState<number | null>(null)
@@ -120,11 +139,13 @@ export function useTestFlow() {
         if (!isMounted) return
 
         const answeredByQuestion = mapAnswersByQuestion(answers)
+        const emotionAnswered = mapEmotionByQuestion(answers)
         setActiveTest(testFromAttempt)
         setToken(storedToken)
         setTestAttemptId(attempt.id)
         setQuestions(loadedQuestions)
         setSelectedOptions(answeredByQuestion)
+        setEmotionByQuestion(emotionAnswered)
 
         if (attempt.status === 'completed') {
           const result = await getAffinity(storedToken, attempt.test_id)
@@ -139,7 +160,9 @@ export function useTestFlow() {
         if (!isMounted) return
 
         setOptionsByQuestionId(questionOptions)
-        setCurrentIndex(getFirstUnansweredIndex(loadedQuestions, answeredByQuestion))
+        setCurrentIndex(
+          getFirstUnansweredIndex(loadedQuestions, answeredByQuestion, emotionAnswered),
+        )
         setQuestionStartedAt(Date.now())
         setStatus('ready')
       } catch (loadError) {
@@ -161,10 +184,16 @@ export function useTestFlow() {
 
   const currentQuestion = questions[currentIndex]
   const currentOptions = currentQuestion ? optionsByQuestionId[currentQuestion.id] ?? [] : []
-  const answeredCount = Object.keys(selectedOptions).length
+  const answeredCount = new Set([
+    ...Object.keys(selectedOptions),
+    ...Object.keys(emotionByQuestion),
+  ]).size
   const progress = questions.length > 0 ? answeredCount / questions.length : 0
   const canSubmitCurrentQuestion =
-    currentQuestion !== undefined && selectedOptions[currentQuestion.id] !== undefined
+    currentQuestion !== undefined &&
+    // Emotion questions default to neutral (0), so they're always submittable.
+    (isEmotionQuestion(currentQuestion) ||
+      selectedOptions[currentQuestion.id] !== undefined)
   const topCandidates = useMemo(
     () => affinity?.candidates.slice(0, 5) ?? [],
     [affinity],
@@ -177,6 +206,7 @@ export function useTestFlow() {
     setError(null)
     setAffinity(null)
     setSelectedOptions({})
+    setEmotionByQuestion({})
     setCurrentIndex(0)
 
     try {
@@ -202,8 +232,9 @@ export function useTestFlow() {
   async function submitCurrentAnswer() {
     if (!token || !testAttemptId || !activeTest || !currentQuestion) return
 
+    const isEmotion = isEmotionQuestion(currentQuestion)
     const responseOptionId = selectedOptions[currentQuestion.id]
-    if (responseOptionId === undefined) return
+    if (!isEmotion && responseOptionId === undefined) return
 
     setStatus('submitting')
     setError(null)
@@ -213,7 +244,9 @@ export function useTestFlow() {
         token,
         testAttemptId,
         questionId: currentQuestion.id,
-        responseOptionId,
+        responseOptionId: isEmotion ? undefined : responseOptionId,
+        // Default to neutral (0) when the slider was left untouched.
+        emotionAnswer: isEmotion ? emotionByQuestion[currentQuestion.id] ?? 0 : undefined,
         responseTime: Date.now() - questionStartedAt,
       })
 
@@ -239,6 +272,10 @@ export function useTestFlow() {
     setSelectedOptions((selected) => ({ ...selected, [questionId]: optionId }))
   }
 
+  function selectEmotion(questionId: number, value: number) {
+    setEmotionByQuestion((emotions) => ({ ...emotions, [questionId]: value }))
+  }
+
   async function selectTest(testId: number) {
     const targetTest = tests.find(t => t.id === testId)
     if (!targetTest) return
@@ -247,6 +284,7 @@ export function useTestFlow() {
     setQuestions([])
     setOptionsByQuestionId({})
     setSelectedOptions({})
+    setEmotionByQuestion({})
     setCurrentIndex(0)
     setTestAttemptId(null)
     setAffinity(null)
@@ -272,9 +310,11 @@ export function useTestFlow() {
       ])
 
       const answeredByQuestion = mapAnswersByQuestion(answers)
+      const emotionAnswered = mapEmotionByQuestion(answers)
       setTestAttemptId(attempt.id)
       setQuestions(loadedQuestions)
       setSelectedOptions(answeredByQuestion)
+      setEmotionByQuestion(emotionAnswered)
 
       if (attempt.status === 'completed') {
         const result = await getAffinity(storedToken, testId)
@@ -286,7 +326,9 @@ export function useTestFlow() {
 
       const questionOptions = await loadQuestionOptions(loadedQuestions)
       setOptionsByQuestionId(questionOptions)
-      setCurrentIndex(getFirstUnansweredIndex(loadedQuestions, answeredByQuestion))
+      setCurrentIndex(
+        getFirstUnansweredIndex(loadedQuestions, answeredByQuestion, emotionAnswered),
+      )
       setQuestionStartedAt(Date.now())
       setStatus('ready')
     } catch {
@@ -306,10 +348,12 @@ export function useTestFlow() {
     progress,
     questions,
     selectedOptions,
+    emotionByQuestion,
     status,
     tests,
     topCandidates,
     selectOption,
+    selectEmotion,
     selectTest,
     startTest,
     submitCurrentAnswer,

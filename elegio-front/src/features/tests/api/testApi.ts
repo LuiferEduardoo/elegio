@@ -117,12 +117,14 @@ export async function createAnswer({
   testAttemptId,
   questionId,
   responseOptionId,
+  emotionAnswer,
   responseTime,
 }: {
   token: string
   testAttemptId: number
   questionId: number
-  responseOptionId: number
+  responseOptionId?: number
+  emotionAnswer?: number
   responseTime: number
 }): Promise<AnswerCreateResponse> {
   try {
@@ -130,7 +132,8 @@ export async function createAnswer({
       `/api/v1/answers/${testAttemptId}`,
       {
         question_id: questionId,
-        response_option_id: responseOptionId,
+        response_option_id: responseOptionId ?? null,
+        emotion_answer: emotionAnswer ?? null,
         response_time: responseTime,
       },
       { headers: { Authorization: `Bearer ${token}` } },

@@ -32,7 +32,13 @@ export type Question = {
   test_id: number
   title: string
   description: string | null
-  type_question: 'multiple_choice' | 'boolean' | 'only_option' | 'open_question'
+  type_question:
+    | 'multiple_choice'
+    | 'boolean'
+    | 'only_option'
+    | 'open_question'
+    | 'video_emotion_slider'
+  video_url: string | null
   question_order: number
   is_active: boolean
   category: {
@@ -73,6 +79,7 @@ export type AnswerCreateResponse = {
     response_option_id: number | null
     boolean_answer: boolean | null
     open_text_answer: string | null
+    emotion_answer: number | null
     response_time: number | null
     created_at: string
   }
