@@ -1,7 +1,8 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import type { TestFlowStatus } from '../hooks/useTestFlow'
 import type { Question, ResponseOption } from '../types'
 import { normalizeMojibake } from '../utils/text'
+import { smoothScrollToTop } from '../../../utils/smoothScroll'
 import { QuestionVideo } from './QuestionVideo'
 
 type MatchQuestionStepProps = {
@@ -64,6 +65,11 @@ export function MatchQuestionStep({
   const description = question.description ? normalizeMojibake(question.description) : null
 
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false)
+
+  // Gently scroll back to the top whenever the question changes.
+  useEffect(() => {
+    smoothScrollToTop()
+  }, [currentIndex])
 
   const handleAskEmma = useCallback(() => {
     const promptParts = [`Explícame esta pregunta del test electoral: ${normalizeMojibake(question.title)}`]
