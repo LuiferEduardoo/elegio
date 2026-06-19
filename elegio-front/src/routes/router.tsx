@@ -4,6 +4,7 @@ import { ElectoralVsPage } from '../pages/ElectoralVsPage'
 import { HomePage } from '../pages/HomePage'
 import { MethodologyPage } from '../pages/MethodologyPage'
 import { ProposalsPage } from '../pages/ProposalsPage'
+import { MatchElectoralPage } from '../pages/MatchElectoralPage'
 import { ResultsPage } from '../pages/ResultsPage'
 import { TestPage } from '../pages/TestPage'
 import { PrivacyPolicyPage } from '../pages/PrivacyPolicyPage'
@@ -38,6 +39,10 @@ export const router = createBrowserRouter([
       {
         path: ROUTE_PATHS.test,
         element: <TestPage />,
+      },
+      {
+        path: ROUTE_PATHS.matchElectoral,
+        element: <MatchElectoralPage />,
       },
       {
         path: ROUTE_PATHS.results,

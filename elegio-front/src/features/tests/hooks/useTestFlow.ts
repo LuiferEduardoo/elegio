@@ -14,6 +14,12 @@ import {
   getOrCreateVisitorToken,
   getVisitorTokenCookie,
 } from '../../../utils/visitorToken'
+import { DEFAULT_TEST_ID } from '../../../config/api'
+
+/** Picks the configured default test, falling back to the first one listed. */
+function pickDefaultTest(tests: Test[]): Test {
+  return tests.find((test) => test.id === DEFAULT_TEST_ID) ?? tests[0]
+}
 
 export type TestFlowStatus =
   | 'idle'
@@ -87,7 +93,7 @@ export function useTestFlow() {
           return
         }
 
-        const candidateTest = response.items[0]
+        const candidateTest = pickDefaultTest(response.items)
         const storedToken = getVisitorTokenCookie()
         if (!storedToken) {
           setActiveTest(candidateTest)
@@ -233,6 +239,61 @@ export function useTestFlow() {
     setSelectedOptions((selected) => ({ ...selected, [questionId]: optionId }))
   }
 
+  async function selectTest(testId: number) {
+    const targetTest = tests.find(t => t.id === testId)
+    if (!targetTest) return
+
+    // Reset all test local state completely
+    setQuestions([])
+    setOptionsByQuestionId({})
+    setSelectedOptions({})
+    setCurrentIndex(0)
+    setTestAttemptId(null)
+    setAffinity(null)
+    setError(null)
+
+    setActiveTest(targetTest)
+    const storedToken = getVisitorTokenCookie()
+    if (!storedToken) {
+      setStatus('idle')
+      return
+    }
+
+    try {
+      const attempt = await getCurrentTestAttempt(storedToken, testId)
+      if (!attempt) {
+        setStatus('idle')
+        return
+      }
+
+      const [loadedQuestions, answers] = await Promise.all([
+        getQuestionsByTest(testId),
+        getAnswers(storedToken, testId),
+      ])
+
+      const answeredByQuestion = mapAnswersByQuestion(answers)
+      setTestAttemptId(attempt.id)
+      setQuestions(loadedQuestions)
+      setSelectedOptions(answeredByQuestion)
+
+      if (attempt.status === 'completed') {
+        const result = await getAffinity(storedToken, testId)
+        setAffinity(result)
+        setCurrentIndex(Math.max(loadedQuestions.length - 1, 0))
+        setStatus('finished')
+        return
+      }
+
+      const questionOptions = await loadQuestionOptions(loadedQuestions)
+      setOptionsByQuestionId(questionOptions)
+      setCurrentIndex(getFirstUnansweredIndex(loadedQuestions, answeredByQuestion))
+      setQuestionStartedAt(Date.now())
+      setStatus('ready')
+    } catch {
+      setStatus('idle')
+    }
+  }
+
   return {
     activeTest,
     affinity,
@@ -249,6 +310,7 @@ export function useTestFlow() {
     tests,
     topCandidates,
     selectOption,
+    selectTest,
     startTest,
     submitCurrentAnswer,
   }

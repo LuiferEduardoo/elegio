@@ -6,6 +6,7 @@ export const ROUTE_PATHS = {
   electoralVs: '/vs-electoral',
   methodology: '/metodologia',
   test: '/test',
+  matchElectoral: '/match-electoral',
   results: '/resultados',
   privacy: '/privacidad',
   cookies: '/cookies',

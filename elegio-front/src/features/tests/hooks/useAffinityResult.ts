@@ -15,7 +15,7 @@ type AffinityResultState = {
  * from the cookie. Use on standalone routes (e.g. /resultados) that don't share
  * the test flow state.
  */
-export function useAffinityResult(): AffinityResultState {
+export function useAffinityResult(testId?: number): AffinityResultState {
   const [state, setState] = useState<AffinityResultState>(() => ({
     affinity: null,
     status: getVisitorTokenCookie() ? 'loading' : 'empty',
@@ -23,13 +23,16 @@ export function useAffinityResult(): AffinityResultState {
 
   useEffect(() => {
     const token = getVisitorTokenCookie()
-    if (!token) return
+    if (!token) {
+      return
+    }
 
     let isMounted = true
 
     async function load(authToken: string) {
+      setState((prev) => ({ ...prev, status: 'loading' }))
       try {
-        const attempt = await getCurrentTestAttempt(authToken)
+        const attempt = await getCurrentTestAttempt(authToken, testId)
         if (!isMounted) return
 
         if (!attempt || attempt.status !== 'completed') {
@@ -51,7 +54,7 @@ export function useAffinityResult(): AffinityResultState {
     return () => {
       isMounted = false
     }
-  }, [])
+  }, [testId])
 
   return state
 }

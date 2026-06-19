@@ -1,7 +1,11 @@
+export type TestType = 'POLITICAL_SPECTRUM' | 'PROGRAMMATIC_ALIGNMENT'
+
 export type Test = {
   id: number
   name: string
   description: string | null
+  image_url: string | null
+  type: TestType | null
   created_at: string
 }
 
@@ -27,6 +31,7 @@ export type Question = {
   id: number
   test_id: number
   title: string
+  description: string | null
   type_question: 'multiple_choice' | 'boolean' | 'only_option' | 'open_question'
   question_order: number
   is_active: boolean
