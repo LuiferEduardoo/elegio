@@ -21,6 +21,7 @@ class QuestionRead(BaseModel):
     title: str
     description: str | None
     type_question: QuestionType
+    video_url: str | None
     question_order: int
     is_active: bool
     category: CategoryInQuestion | None
