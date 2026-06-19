@@ -47,6 +47,16 @@ export type Question = {
     name: string
     weight: number
   } | null
+  candidate: {
+    id: number
+    presidential_candidate: string
+    vice_presidential_candidate: string
+    political_group: string
+    photo_of_political_group: string | null
+    photo_president: string | null
+    photo_vice_president: string | null
+    political_spectrum: string | null
+  } | null
   created_at: string
 }
 

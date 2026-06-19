@@ -52,9 +52,37 @@ export function ChatWindow({
     close: 'animate-chat-close',
   }[anim]
 
+  const [showScrollBottom, setShowScrollBottom] = useState(false)
+  const prevMessagesLengthRef = useRef(messages.length)
+
+  // Scroll to bottom instantly when the chat is opened/mounted
   useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+    }
+  }, [])
+
+  useEffect(() => {
+    const prevLength = prevMessagesLengthRef.current
+    prevMessagesLengthRef.current = messages.length
+
+    const hasNewUserMessage = messages.length > prevLength && messages[messages.length - 1]?.role === 'user'
+
+    if (hasNewUserMessage) {
+      scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
+    }
   }, [messages])
+
+  const handleScroll = () => {
+    if (!scrollRef.current) return
+    const { scrollTop, scrollHeight, clientHeight } = scrollRef.current
+    const isAtBottom = scrollHeight - scrollTop - clientHeight < 60
+    setShowScrollBottom(!isAtBottom)
+  }
+
+  const scrollToBottom = () => {
+    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
+  }
 
   useEffect(() => {
     inputRef.current?.focus({ preventScroll: true })
@@ -165,35 +193,56 @@ export function ChatWindow({
         </button>
       </header>
 
-      <div ref={scrollRef} className="flex-1 overflow-y-auto bg-surface px-4 py-4">
-        <div className={`space-y-3 ${isFullscreen ? 'mx-auto w-full max-w-3xl' : ''}`}>
-          {messages.map((message) => (
-            <div
-              key={message.id}
-              className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-            >
+      <div className="relative flex-1 min-h-0 flex flex-col">
+        <div
+          ref={scrollRef}
+          onScroll={handleScroll}
+          className="flex-1 overflow-y-auto bg-surface px-4 py-4"
+        >
+          <div className={`space-y-3 ${isFullscreen ? 'mx-auto w-full max-w-3xl' : ''}`}>
+            {messages.map((message) => (
               <div
-                className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm leading-snug ${
-                  message.role === 'user'
-                    ? 'whitespace-pre-wrap rounded-br-sm text-white'
-                    : 'chat-markdown rounded-bl-sm bg-white text-ink ring-1 ring-black/5'
-                }`}
-                style={message.role === 'user' ? { backgroundColor: '#2563eb' } : undefined}
+                key={message.id}
+                className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
               >
-                {message.role === 'user' ? (
-                  message.content
-                ) : message.content ? (
-                  <ReactMarkdown>{message.content}</ReactMarkdown>
-                ) : (
-                  isStreaming && '…'
-                )}
+                <div
+                  className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm leading-snug ${
+                    message.role === 'user'
+                      ? 'whitespace-pre-wrap rounded-br-sm text-white'
+                      : 'chat-markdown rounded-bl-sm bg-white text-ink ring-1 ring-black/5'
+                  }`}
+                  style={message.role === 'user' ? { backgroundColor: '#2563eb' } : undefined}
+                >
+                  {message.role === 'user' ? (
+                    message.content
+                  ) : message.content ? (
+                    <ReactMarkdown>{message.content}</ReactMarkdown>
+                  ) : (
+                    isStreaming && '…'
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
-          {error && (
-            <p className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600">{error}</p>
-          )}
+            ))}
+            {error && (
+              <p className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600">{error}</p>
+            )}
+          </div>
         </div>
+        {showScrollBottom && (
+          <button
+            type="button"
+            onClick={scrollToBottom}
+            className={`absolute bottom-4 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white text-[#2563eb] shadow-lg ring-1 ring-black/10 hover:bg-surface transition-all duration-200 ${
+              isFullscreen ? 'right-4 md:right-[calc(50%-23rem)]' : 'right-4'
+            }`}
+            aria-label="Ir al final"
+            title="Ir al final"
+          >
+            <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5" stroke="currentColor" strokeWidth="2.5">
+              <path d="M19 13l-7 7-7-7m14-6l-7 7-7-7" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+        )}
       </div>
 
       <div
