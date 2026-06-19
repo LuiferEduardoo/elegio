@@ -18,6 +18,7 @@ class QuestionRead(BaseModel):
 
     id: int
     test_id: int
+    candidate_id: int | None
     title: str
     description: str | None
     type_question: QuestionType
