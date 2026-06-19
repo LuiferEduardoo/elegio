@@ -1,9 +1,8 @@
 /**
  * Scrolls the window to the top with a gentle, eased animation over `duration`
- * ms (slower than the browser's native `behavior: 'smooth'`). Honors the user's
- * reduced-motion preference by jumping instantly.
+ * ms. Honors the user's reduced-motion preference by jumping instantly.
  */
-export function smoothScrollToTop(duration = 900): void {
+export function smoothScrollToTop(duration = 300): void {
   const start = window.scrollY
   if (start <= 0) return
 
