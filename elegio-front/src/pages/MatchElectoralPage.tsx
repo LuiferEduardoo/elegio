@@ -79,9 +79,12 @@ export function MatchElectoralPage() {
 
 function MatchContent({ affinity }: { affinity: AffinityResponse }) {
   const candidates = affinity.candidates
-  const [winner, runnerUp] = candidates
+  const [winner] = candidates
   const winnerName = normalizeMojibake(winner.presidential_candidate)
   const winnerGroup = normalizeMojibake(winner.political_group)
+
+  const realCandidates = candidates.filter((c) => c.candidate_id >= 0)
+  const [realWinner, realRunnerUp] = realCandidates
 
   return (
     <>
@@ -111,22 +114,24 @@ function MatchContent({ affinity }: { affinity: AffinityResponse }) {
               {winnerName}
             </h2>
             <p className="mt-2 text-sm font-semibold text-white/75">{winnerGroup}</p>
-            <Link
-              to={buildCandidateDetailPath(winner.candidate_id)}
-              className="mt-6 inline-flex w-fit rounded-full bg-white px-4 py-3 text-[0.65rem] font-black uppercase tracking-[0.18em] text-ink transition hover:bg-jade hover:text-white sm:px-5 sm:text-xs sm:tracking-[0.2em]"
-            >
-              Ver candidato →
-            </Link>
+            {winner.candidate_id >= 0 && (
+              <Link
+                to={buildCandidateDetailPath(winner.candidate_id)}
+                className="mt-6 inline-flex w-fit rounded-full bg-white px-4 py-3 text-[0.65rem] font-black uppercase tracking-[0.18em] text-ink transition hover:bg-jade hover:text-white sm:px-5 sm:text-xs sm:tracking-[0.2em]"
+              >
+                Ver candidato →
+              </Link>
+            )}
           </div>
         </article>
 
         <div className="flex flex-col gap-6">
-          {runnerUp && (
+          {realWinner && realRunnerUp && (
             <article className="rounded-[2rem] border border-coffee/10 bg-white p-5 shadow-xl shadow-coffee/5 sm:rounded-[2.5rem] sm:p-9">
               <p className="mb-5 text-xs font-black uppercase tracking-[0.28em] text-clay">
                 Cara a cara
               </p>
-              <MatchVersus left={winner} right={runnerUp} />
+              <MatchVersus left={realWinner} right={realRunnerUp} />
             </article>
           )}
 

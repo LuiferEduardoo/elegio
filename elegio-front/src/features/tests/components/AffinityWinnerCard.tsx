@@ -57,12 +57,14 @@ export function AffinityWinnerCard({ candidate }: AffinityWinnerCardProps) {
           </p>
         </div>
 
-        <Link
-          to={buildCandidateDetailPath(candidate.candidate_id)}
-          className="mt-8 inline-flex w-fit rounded-full bg-white px-5 py-3 text-xs font-black uppercase tracking-[0.2em] text-ink transition hover:bg-jade hover:text-white"
-        >
-          Ver candidato →
-        </Link>
+        {candidate.candidate_id >= 0 && (
+          <Link
+            to={buildCandidateDetailPath(candidate.candidate_id)}
+            className="mt-8 inline-flex w-fit rounded-full bg-white px-5 py-3 text-xs font-black uppercase tracking-[0.2em] text-ink transition hover:bg-jade hover:text-white"
+          >
+            Ver candidato →
+          </Link>
+        )}
       </div>
     </article>
   )

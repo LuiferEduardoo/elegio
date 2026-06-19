@@ -13,10 +13,11 @@ type CandidateComparisonProps = {
 }
 
 export function CandidateComparison({ candidates, userAverages }: CandidateComparisonProps) {
-  const [selectedId, setSelectedId] = useState(() => candidates[0]?.candidate_id)
+  const realCandidates = candidates.filter((c) => c.candidate_id >= 0)
+  const [selectedId, setSelectedId] = useState(() => realCandidates[0]?.candidate_id)
 
   const selected =
-    candidates.find((candidate) => candidate.candidate_id === selectedId) ?? candidates[0]
+    realCandidates.find((candidate) => candidate.candidate_id === selectedId) ?? realCandidates[0]
   const { candidate, isLoading, error } = useCandidate(
     selected ? String(selected.candidate_id) : undefined,
   )
@@ -35,7 +36,7 @@ export function CandidateComparison({ candidates, userAverages }: CandidateCompa
       </p>
 
       <CandidatePickerStrip
-        candidates={candidates}
+        candidates={realCandidates}
         selectedId={selected.candidate_id}
         onSelect={setSelectedId}
       />

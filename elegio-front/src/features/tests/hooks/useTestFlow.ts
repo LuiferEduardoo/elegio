@@ -15,6 +15,7 @@ import {
   getVisitorTokenCookie,
 } from '../../../utils/visitorToken'
 import { DEFAULT_TEST_ID } from '../../../config/api'
+import { processAffinity } from './useAffinityResult'
 
 /** Picks the configured default test, falling back to the first one listed. */
 function pickDefaultTest(tests: Test[]): Test {
@@ -191,7 +192,7 @@ export function useTestFlow() {
         if (attempt.status === 'completed') {
           const result = await getAffinity(storedToken, attempt.test_id)
           if (!isMounted) return
-          setAffinity(result)
+          setAffinity(processAffinity(result))
           setCurrentIndex(Math.max(loadedQuestions.length - 1, 0))
           setStatus('finished')
           return
@@ -299,7 +300,7 @@ export function useTestFlow() {
       }
 
       const result = await getAffinity(token, activeTest.id)
-      setAffinity(result)
+      setAffinity(processAffinity(result))
       setStatus('finished')
     } catch (submitError) {
       setError(
@@ -359,7 +360,7 @@ export function useTestFlow() {
 
       if (attempt.status === 'completed') {
         const result = await getAffinity(storedToken, testId)
-        setAffinity(result)
+        setAffinity(processAffinity(result))
         setCurrentIndex(Math.max(loadedQuestions.length - 1, 0))
         setStatus('finished')
         return

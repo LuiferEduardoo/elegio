@@ -55,12 +55,14 @@ export function TestResultsPanel({ affinity }: TestResultsPanelProps) {
                   {group}
                   {spectrum ? ` · ${spectrum}` : ''}
                 </p>
-                <Link
-                  to={buildCandidateDetailPath(candidate.candidate_id)}
-                  className="mt-3 inline-flex text-sm font-black text-clay underline-offset-4 hover:underline"
-                >
-                  Ver candidato →
-                </Link>
+                {candidate.candidate_id >= 0 && (
+                  <Link
+                    to={buildCandidateDetailPath(candidate.candidate_id)}
+                    className="mt-3 inline-flex text-sm font-black text-clay underline-offset-4 hover:underline"
+                  >
+                    Ver candidato →
+                  </Link>
+                )}
               </div>
             </article>
           )
