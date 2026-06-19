@@ -79,7 +79,6 @@ export function MatchQuestionStep({
     if (description) {
       promptParts.push(`Descripción: ${description}`)
     }
-    promptParts.push('Trata de explicarla en lenguaje simple y sin sesgo político.')
 
     const event = new CustomEvent('emma:explain-question', {
       detail: {
