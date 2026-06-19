@@ -13,6 +13,19 @@ class CategoryInQuestion(BaseModel):
     weight: float
 
 
+class CandidateInQuestion(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    presidential_candidate: str
+    vice_presidential_candidate: str
+    political_group: str
+    photo_of_political_group: str | None
+    photo_president: str | None
+    photo_vice_president: str | None
+    political_spectrum: str | None
+
+
 class QuestionRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -26,6 +39,7 @@ class QuestionRead(BaseModel):
     question_order: int
     is_active: bool
     category: CategoryInQuestion | None
+    candidate: CandidateInQuestion | None = None
     created_at: datetime
 
 

@@ -33,7 +33,7 @@ async def list_questions_by_test(
 
     result = await db.execute(
         select(Question)
-        .options(selectinload(Question.category))
+        .options(selectinload(Question.category), selectinload(Question.candidate))
         .where(*filters)
         .order_by(Question.question_order.asc(), Question.id.asc())
         .limit(limit)
@@ -60,7 +60,7 @@ async def list_questions_by_category(
 
     result = await db.execute(
         select(Question)
-        .options(selectinload(Question.category))
+        .options(selectinload(Question.category), selectinload(Question.candidate))
         .where(*filters)
         .order_by(Question.question_order.asc(), Question.id.asc())
         .limit(limit)
