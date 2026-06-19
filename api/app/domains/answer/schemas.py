@@ -43,6 +43,7 @@ class AnswerCreate(BaseModel):
     response_option_id: int | None = Field(default=None, gt=0)
     boolean_answer: bool | None = None
     open_text_answer: str | None = None
+    emotion_answer: float | None = Field(default=None, ge=-1.0, le=1.0)
     response_time: int | None = Field(default=None, ge=0)
 
 
@@ -50,6 +51,7 @@ class AnswerUpdate(BaseModel):
     response_option_id: int | None = Field(default=None, gt=0)
     boolean_answer: bool | None = None
     open_text_answer: str | None = None
+    emotion_answer: float | None = Field(default=None, ge=-1.0, le=1.0)
     response_time: int | None = Field(default=None, ge=0)
 
 
@@ -62,6 +64,7 @@ class AnswerRead(BaseModel):
     response_option_id: int | None
     boolean_answer: bool | None
     open_text_answer: str | None
+    emotion_answer: float | None
     response_time: int | None
     created_at: datetime
 
