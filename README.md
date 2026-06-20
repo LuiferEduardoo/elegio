@@ -5,12 +5,12 @@ Open source project to help choose a presidential candidate for the 2026 republi
 ## 🎯 Overview
 
 Elegio is a non-partisan platform designed to help voters make informed decisions by:
-- Taking a comprehensive test to match with candidates
+- Taking an affinity test — either a **political-spectrum** match (distance per category) or a head-to-head **"match electoral"** where you respond to each finalist's concrete proposals and rate your reaction to their campaign videos
 - Viewing and analyzing candidate proposals
 - Filtering candidates by political positions
 - Comparing candidates side by side
 - Understanding the impact of proposals through AI analysis
-- Chatting with **Emma**, a RAG assistant grounded on the candidates' proposals, documents, interviews and news
+- Chatting with **Emma**, a RAG assistant grounded on the candidates' proposals, documents, interviews and news that cites its sources
 
 ## 🏗️ Architecture
 
@@ -20,6 +20,10 @@ elegio/
 ├── elegio-front/ # Vite + React web application
 └── analysis/     # AI-powered proposal analysis
 ```
+
+Each package has its own README with deeper detail:
+- [api/README.md](api/README.md) — backend setup and full API reference
+- [elegio-front/README.md](elegio-front/README.md) — web client architecture and features
 
 ## 🚀 Tech Stack
 
@@ -34,6 +38,8 @@ elegio/
 - **Vite** - Frontend build tool and dev server
 - **React 19** - UI library
 - **TypeScript** - Type-safe development
+- **React Router 7** - Client-side routing
+- **Tailwind CSS v4** - Styling
 
 ### AI
 - **Gemini API** - Proposal analysis, plus `gemini-embedding-001` for content/query embeddings
