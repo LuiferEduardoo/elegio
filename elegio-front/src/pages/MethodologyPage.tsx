@@ -42,7 +42,7 @@ const STEPS: Step[] = [
     number: '06',
     title: 'Test de afinidad',
     body:
-      'El test compara tus respuestas con las posiciones agregadas de cada candidatura por categoría (ya ajustadas por su peso retórico). No te dice por quién votar: te muestra qué tan cerca o lejos quedan las propuestas de cada fórmula respecto a tus posturas, ponderando por la importancia que vos diste a cada tema.',
+      'Tenemos dos modos de test. El de espectro político mide la distancia entre tu postura y la de cada candidatura por categoría (ya ajustada por su peso retórico). El "cara a cara" de segunda vuelta es más directo: respondés a las propuestas concretas de cada finalista y, en algunas preguntas, calificás tu reacción a un video suyo. Ninguno te dice por quién votar: solo muestran qué tan cerca quedás de cada fórmula, tema por tema.',
   },
 ]
 
@@ -95,6 +95,36 @@ const FORMULAS: Formula[] = [
       'd(u, c) = Σₖ wₖ · |uₖ − cₖ|\nafinidad(u, c) = 1 − d(u, c) / (2 · Σₖ wₖ)',
     usage:
       'Tu afinidad con cada candidato se calcula como la distancia de Manhattan ponderada entre tu vector de respuestas y el suyo, categoría por categoría. uₖ es tu posición promedio en la categoría k, cₖ la del candidato (promedio de sus postures ya ajustado por el peso retórico) y wₖ el peso de esa categoría. Dividimos entre la distancia máxima posible (2·Σwₖ, porque cada eje vive en [−1, +1]) para que el resultado quede en [0, 1] y lo mostramos como porcentaje: 100% es coincidencia perfecta, 0% es oposición total. Elegimos Manhattan en vez de euclidiana para que cada categoría aporte de forma lineal, sin penalizar desproporcionadamente desacuerdos grandes en un solo eje.',
+  },
+  {
+    name: 'Postura de tu respuesta (cara a cara)',
+    expression: 'Xᵢ = Rᵤ,ᵢ · Oₚ,ᵢ',
+    usage:
+      'En el "cara a cara" de segunda vuelta no te comparamos contra un vector abstracto: respondés directamente a las propuestas de cada finalista. Rᵤ,ᵢ es tu respuesta (de acuerdo +1, neutral 0, en desacuerdo −1) y Oₚ,ᵢ la orientación de esa propuesta dentro de su categoría (−1 a +1). El producto Xᵢ es tu postura sobre ese eje, y queda precalculado en cada opción de respuesta.',
+  },
+  {
+    name: 'Castigo por contradicción (peso efectivo)',
+    expression: 'W̃cat = Wcat · (1 − σ²)',
+    usage:
+      'Por cada categoría miramos la varianza σ² de tus posturas Xᵢ. Si respondés de forma coherente, σ² es baja y la categoría conserva casi todo su peso; si te contradecís (por ejemplo, apoyás dos propuestas opuestas del mismo tema), σ² sube y el peso efectivo cae. Si quedás en los dos extremos, σ²=1 y esa categoría deja de contar. Así premiamos la coherencia sin juzgar el contenido de tus respuestas.',
+  },
+  {
+    name: 'Afinidad directa por pregunta',
+    expression: 'Aᵢ = (Rᵤ,ᵢ + 1) / 2',
+    usage:
+      'Convertimos tu acuerdo con cada propuesta a un puntaje de 0 a 1: de acuerdo = 1, neutral = 0.5, en desacuerdo = 0.',
+  },
+  {
+    name: 'Match del candidato (propuestas)',
+    expression: '%Matchₖ = Σ (W̃cat,ᵢ · Aᵢ) / Σ W̃cat,ᵢ',
+    usage:
+      'Para cada finalista promediamos tu afinidad Aᵢ solo sobre sus propias propuestas, ponderando por el peso efectivo de la categoría a la que pertenece cada pregunta. El resultado queda en [0, 1].',
+  },
+  {
+    name: 'Reacción emocional y resultado final',
+    expression: 'emociónₖ = (e + 1) / 2\nfinalₖ = 0.9 · %Matchₖ + 0.1 · emociónₖ',
+    usage:
+      'Algunas preguntas del cara a cara te muestran un video del candidato y te piden calificar tu reacción en una barra que va de rechazo (−1) a empatía (+1). La llevamos a [0, 1] con (e+1)/2 y la promediamos por candidato (neutral 0.5 si no tiene videos). El resultado final combina 90% propuestas y 10% reacción emocional.',
   },
 ]
 
