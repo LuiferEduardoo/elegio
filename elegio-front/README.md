@@ -27,7 +27,7 @@ elegio-front/
 │   ├── pages/                # One component per route
 │   ├── components/           # Shared UI (RootLayout, Footer, SpectrumMarker, FloatingEmmaButton)
 │   ├── features/             # Feature modules (see below)
-│   ├── utils/                # Cross-feature helpers (e.g. text.ts)
+│   ├── utils/                # Cross-feature helpers (visitorToken.ts, smoothScroll.ts, text.ts)
 │   └── assets/
 ├── .env.example             # Documents VITE_API_URL
 └── vite.config.ts
@@ -44,8 +44,11 @@ Each feature under `src/features/<name>/` owns its slice and follows the same in
 | `proposals` | Hybrid proposal search with candidate/category filters; state synced to the URL. |
 | `electoral-vs` | Side-by-side candidate comparison by category; selection synced to the URL. |
 | `government-plans` | Candidate government plan documents. |
-| `tests` | Affinity test flow and results. |
+| `tests` | Affinity test flows and results — both the classic `/test` and the `/match-electoral` match flow with video questions (see [Tests & Match electoral](#-tests--match-electoral)). |
 | `chat` | Emma, the streaming chat assistant (see [Emma chatbot](#-emma-chatbot)). |
+| `analytics` | Anonymous usage tracking — page views, clicks and scroll depth posted to `/api/v1/events` (see [Analytics](#-analytics)). |
+
+> Cross-feature helpers (the shared visitor token, smooth-scroll, text utilities) live in [`src/utils/`](src/utils/) so the test, chat and analytics features can all reuse them — see [Visitor token](#-visitor-token).
 
 ## 🧭 Routes
 
@@ -59,9 +62,12 @@ Defined in [`src/routes/paths.ts`](src/routes/paths.ts) and wired in [`src/route
 | `/candidatos/:id` | `CandidateDetailPage` |
 | `/metodologia` | `MethodologyPage` |
 | `/test` | `TestPage` |
+| `/match-electoral` | `MatchElectoralPage` |
 | `/resultados` | `ResultsPage` |
 | `/privacidad` | `PrivacyPolicyPage` |
 | `/cookies` | `CookiesPolicyPage` |
+
+> `ROUTE_PATHS` also defines `/candidatos` (candidate list); `buildCandidateDetailPath(id)` builds the detail path.
 
 > **Shareable URLs.** `ProposalsPage` and `ElectoralVsPage` persist their filters in the query string via `useSearchParams` (`?q=`, `?candidates=1,2`, `?category=3`), so a search or comparison can be bookmarked and shared.
 
@@ -109,15 +115,48 @@ npm run lint      # Run ESLint
 
 All requests go through the shared `apiClient` in [`src/config/api.ts`](src/config/api.ts) (axios instance with `baseURL = VITE_API_URL` and a 10s timeout). Feature `api/` modules call versioned endpoints under `/api/v1` and map errors to user-facing messages. Avoid `fetch`/bare `axios` in components — call a feature `api/` function instead.
 
-### Auth flow (tests feature)
+### 🪪 Visitor token
 
-The affinity test uses an anonymous **visitor token** (no user accounts):
+There are no user accounts. Everything that needs the API to recognize a returning browser uses a single **anonymous visitor token** — a JWT issued by `POST /api/v1/auth/token`. It is now centralized in [`src/utils/visitorToken.ts`](src/utils/visitorToken.ts) and shared by **three** features: the tests/match flow, the Emma chat, and analytics. (The test no longer keeps a separate `elegio_test_token`.)
 
-1. `createAuthToken()` posts the visitor/session metadata (language, timezone, screen, referer, …) to `POST /api/v1/auth/token` and receives a JWT bound to the visitor.
-2. `initializeTestAttempt(testId, token)` calls `POST /api/v1/test-attempts/initialize` with the token as `Authorization: Bearer` to create the test attempt.
-3. Protected calls (`/test-attempts`, `/answers`, `/answers/affinity`) send the same Bearer token; the API resolves the visitor's most recent attempt server-side.
+- `createVisitorToken()` posts visitor/session metadata (language, timezone, screen size, pixel ratio, landing page, referer, viewport) to `POST /api/v1/auth/token` and returns the JWT.
+- `getOrCreateVisitorToken()` returns the cached token, minting and persisting one only when missing.
+- The token is stored in the `elegio_visitor_token` cookie (30-day max-age, `Path=/`, `SameSite=Lax`), so the same identity is reused across the test, chat and analytics and survives reloads.
 
-The token is persisted in a cookie (`src/features/tests/utils/testTokenCookie.ts`) so an in-progress test survives a page reload.
+Protected calls send it as `Authorization: Bearer <token>`; the API resolves the visitor (and, for answers, the current test attempt) server-side.
+
+## 🗳 Tests & Match electoral
+
+The `tests` feature ([`src/features/tests/`](src/features/tests/)) drives two question flows, both built on the [`useTestFlow`](src/features/tests/hooks/useTestFlow.ts) hook and the shared [visitor token](#-visitor-token):
+
+- `/test` (`TestPage`) — the classic affinity questionnaire.
+- `/match-electoral` (`MatchElectoralPage`) — the "match" flow, composed of [`MatchTestIntro`](src/features/tests/components/MatchTestIntro.tsx), [`MatchQuestionStep`](src/features/tests/components/MatchQuestionStep.tsx), and result charts under [`components/charts/`](src/features/tests/components/charts/).
+
+### Match flow specifics
+
+- **Intro chips.** `MatchTestIntro` shows derived stats — number of questions, number of distinct finalists (candidates referenced by the questions), and an estimated duration in minutes — computed from the active test's questions in `useTestFlow`.
+- **Video questions.** [`QuestionVideo`](src/features/tests/components/QuestionVideo.tsx) renders a question's `video_url` as a TikTok embed, a YouTube embed, or a native `<video>` for direct files.
+- **Emotion slider.** For `video_emotion_slider` questions, `MatchQuestionStep` shows an emotion slider — rechazo / neutral / empatía — mapped to a numeric `emotion_answer` in `[-1, 1]`.
+- **Smooth scroll.** Advancing between questions gently scrolls the page to the top via [`smoothScrollToTop`](src/utils/smoothScroll.ts).
+
+### API integration ([`testApi.ts`](src/features/tests/api/testApi.ts))
+
+The answer/affinity endpoints are now scoped by the test attempt and the test id:
+
+- `createAnswer({ testAttemptId, ... })` → `POST /api/v1/answers/{test_attempt_id}`, sending `question_id`, `response_option_id`, `emotion_answer` (for the slider) and `response_time`.
+- `getAnswers(token, testId)` → `GET /api/v1/answers/{test_id}`.
+- `getAffinity(token, testId)` → `GET /api/v1/answers/affinity/{test_id}`.
+- `getCurrentTestAttempt(token, testId)` → `GET /api/v1/test-attempts?test_id=`; a `404` is treated as "no attempt yet" (the visitor may have a token from the chat or analytics without having started a test).
+
+## 📈 Analytics
+
+The `analytics` feature ([`src/features/analytics/`](src/features/analytics/)) records anonymous usage signals. [`AnalyticsTracker`](src/features/analytics/components/AnalyticsTracker.tsx) is mounted once in `RootLayout`, so it runs on every route, and emits three event types via [`trackEvent`](src/features/analytics/api/trackEvent.ts):
+
+- `page_view` — on every route change (including first render).
+- `click` — on interactive elements (`a`, `button`, `[role="button"]`, `input`, `[data-track]`), capturing the element's tag/id/class/text.
+- `scroll` — once per `25/50/75/100%` depth milestone reached on a page.
+
+`trackEvent` is fire-and-forget: it sends `POST /api/v1/events` with the shared [visitor token](#-visitor-token) and **swallows all errors** so analytics never block or disrupt the UI.
 
 ## 🤖 Emma chatbot
 
@@ -132,9 +171,9 @@ Emma is the in-app assistant that helps visitors verify candidate proposals. It 
 
 ### Conversation flow
 
-The chat reuses the anonymous **visitor token** described above, then streams replies over **Server-Sent Events (SSE)**. All of this is wrapped by the [`useEmmaChat`](src/features/chat/hooks/useEmmaChat.ts) hook, with the network layer in [`chatApi.ts`](src/features/chat/api/chatApi.ts):
+The chat reuses the shared anonymous [**visitor token**](#-visitor-token), then streams replies over **Server-Sent Events (SSE)**. All of this is wrapped by the [`useEmmaChat`](src/features/chat/hooks/useEmmaChat.ts) hook, with the network layer in [`chatApi.ts`](src/features/chat/api/chatApi.ts):
 
-1. **Visitor token** — `createVisitorToken()` posts visitor/session metadata to `POST /api/v1/auth/token` and returns a JWT. It is cached in the `elegio_visitor_token` cookie ([`visitorTokenCookie.ts`](src/features/chat/utils/visitorTokenCookie.ts), 30-day max-age) and reused on later visits.
+1. **Visitor token** — `useEmmaChat` calls `getOrCreateVisitorToken()` from [`src/utils/visitorToken.ts`](src/utils/visitorToken.ts) (the same cookie the test and analytics use).
 2. **Create a chat** — `createChat(token)` calls `POST /api/v1/chats` with `Authorization: Bearer <token>` and returns the chat `id`.
 3. **Stream a message** — `streamMessage(...)` `fetch`-es `POST /api/v1/chats/{id}/messages` with `Accept: text/event-stream` and reads the response body via a `ReadableStream` reader, parsing these SSE events:
    - `sources` — retrieved sources for the answer (`ChatSource[]`)
