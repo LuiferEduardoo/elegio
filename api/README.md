@@ -81,12 +81,12 @@ A typical client integration looks like this:
      │ ──────────────────────────────────────────────────────► │
      │ ◄────────────────────────────────────────────────────── │  options for the current question
      │                                                         │
-     │  6. POST /api/v1/answers          (Bearer <token>)      │
+     │  6. POST /api/v1/answers/{attempt_id} (Bearer <token>)  │
      │ ──────────────────────────────────────────────────────► │  loops over the questions
      │ ◄────────────────────────────────────────────────────── │  { answer, test_completed, status }
      │                                                         │
-     │  7. GET /api/v1/answers/affinity  (Bearer <token>)      │
-     │ ──────────────────────────────────────────────────────► │  computes weighted Manhattan affinity
+     │  7. GET /api/v1/answers/affinity/{test_id} (Bearer)     │
+     │ ──────────────────────────────────────────────────────► │  computes affinity per the test's type
      │ ◄────────────────────────────────────────────────────── │  ranked candidates with affinity score
      │                                                         │
 ```
@@ -106,7 +106,7 @@ The **Emma chatbot** ([Chats](#chats)) rides on the same visitor token: after st
 - **MySQL 8** via `aiomysql` (async) and `pymysql` (sync, used by Alembic)
 - **PyJWT** `2.10` — JWT issuance and validation (HS256)
 - **slowapi** `0.1.9` — IP-based rate limiting
-- **google-genai** `1.16.1` — Gemini API client used to embed search queries with `gemini-embedding-001` (1536-dim); no local embedding model is loaded
+- **google-genai** `1.75.0` — Gemini API client used to embed search queries with `gemini-embedding-001` (1536-dim); no local embedding model is loaded
 - **qdrant-client** `1.13.2` — Qdrant client used to query the chunk vector collections (`proposal_chunks`, `document_chunks`, `interview_chunks`, `news_chunks`)
 - **rank-bm25** `0.2.2` — in-memory BM25 lexical index fused with the dense results via Reciprocal Rank Fusion
 - **langchain-core** `1.4.6` + **langchain-google-genai** `4.2.5` — prompt templates, retriever abstraction and the Gemini chat model behind the Emma chatbot
@@ -302,7 +302,7 @@ A token is issued by `POST /api/v1/auth/token` ([routes](app/domains/auth/routes
 
 The token is returned in the response body as `token`, alongside `visitor_id`.
 
-Test attempts are created afterwards with `POST /api/v1/test-attempts/initialize` (private), which reads `visitor_id` from the token and creates a `TestAttempt` (`uuid` = UUIDv4, `status = IN_PROGRESS`) for the requested `test_id`. Endpoints that operate on "the current attempt" (`GET /api/v1/test-attempts`, the answers endpoints) resolve the visitor's **most recent** non-deleted attempt.
+Test attempts are created afterwards with `POST /api/v1/test-attempts/initialize` (private), which reads `visitor_id` from the token and creates a `TestAttempt` (`uuid` = UUIDv4, `status = IN_PROGRESS`) for the requested `test_id`. `GET /api/v1/test-attempts` resolves the visitor's **most recent** non-deleted attempt (optionally filtered by `?test_id=`); the answer endpoints scope to a specific attempt/test via their path params (see [Answers](#answers)).
 
 ### Using a token
 
@@ -462,6 +462,15 @@ Errors:
 
 A `Test` is a questionnaire definition (set of categorized questions). Tests are listed publicly so the frontend can let the user pick one.
 
+Each test carries a `type` ([`TestType`](app/domains/test/models.py)) that selects the affinity algorithm used by [`GET /api/v1/answers/affinity/{test_id}`](#get-apiv1answersaffinitytest_id):
+
+| `type`                   | Affinity strategy                                              |
+| ------------------------ | ------------------------------------------------------------- |
+| `political_spectrum`     | Weighted Manhattan distance over per-category averages.        |
+| `programmatic_alignment` | Direct agreement with each candidate's proposals + emotional reaction to their videos. |
+
+`type` is nullable; a test with no type cannot compute affinity (the affinity endpoint returns `400`).
+
 #### `GET /api/v1/tests`
 
 List tests, ordered by `id ASC`.
@@ -470,15 +479,17 @@ List tests, ordered by `id ASC`.
 - **Rate limit**: `100/minute`
 - **Query**: `limit` (1–100, default 10), `offset` (≥0, default 0)
 
-Response `200 OK`:
+Response `200 OK` — [`TestRead`](app/domains/test/schemas.py):
 
 ```json
 {
   "items": [
     {
       "id": 1,
-      "nombre": "Test presidencial 2026",
-      "descripcion": "20 preguntas para encontrar tu candidato",
+      "name": "Test presidencial 2026",
+      "description": "20 preguntas para encontrar tu candidato",
+      "image_url": "https://cdn.elegio.app/tests/1.png",
+      "type": "political_spectrum",
       "created_at": "2026-04-01T12:00:00"
     }
   ],
@@ -487,8 +498,6 @@ Response `200 OK`:
   "offset": 0
 }
 ```
-
-> ⚠ The `Test` resource is the only one that exposes Spanish field names (`nombre`, `descripcion`) — the rest of the API uses English. These names mirror the underlying column names and are kept stable for backward compatibility with the existing seed data.
 
 Errors: `429 Too Many Requests`.
 
@@ -546,6 +555,7 @@ Returns the current (most recent) test attempt of the visitor in the bearer toke
 
 - **Auth**: required
 - **Rate limit**: `500/minute`
+- **Query**: `test_id` (int, `> 0`, optional) — when set, returns the visitor's most recent attempt **for that test**; otherwise the most recent attempt across all tests.
 
 Response `200 OK` — same shape as the initialize response above.
 
@@ -833,7 +843,18 @@ Errors:
 
 [routes.py](app/domains/question/routes.py) · [service.py](app/domains/question/service.py) · [models.py](app/domains/question/models.py)
 
-Questions are returned **ordered by `question_order ASC, id ASC`**, with their `category` eagerly loaded. `type_question` is one of: `multiple_choice`, `boolean`, `only_option`, `open_question`.
+Questions are returned **ordered by `question_order ASC, id ASC`**, with their `category` (and, when present, their `candidate`) eagerly loaded. `type_question` ([`QuestionType`](app/domains/question/models.py)) is one of: `multiple_choice`, `boolean`, `only_option`, `open_question`, `video_emotion_slider`.
+
+Each [`QuestionRead`](app/domains/question/schemas.py) also exposes:
+
+| Field          | Type                          | Description                                                                                     |
+| -------------- | ----------------------------- | ----------------------------------------------------------------------------------------------- |
+| `description`  | `str \| null`                 | Optional longer prompt shown under the title.                                                   |
+| `video_url`    | `str \| null`                 | Video to play for the question (used by `video_emotion_slider`, e.g. a TikTok / YouTube / file URL). |
+| `candidate_id` | `int \| null`                 | FK to the candidate a question is about (`programmatic_alignment` tests tie questions to candidates). |
+| `candidate`    | nested candidate object `\| null` | The eagerly-loaded candidate (`id`, names, group, photos, `political_spectrum`) when `candidate_id` is set. |
+
+The `video_emotion_slider` type pairs with the new `emotion_answer` field on [Answers](#answers): the client plays `video_url` and posts the visitor's emotional reaction in `[-1, 1]`.
 
 #### `GET /api/v1/questions/by-test/{test_id}`
 
@@ -852,8 +873,11 @@ Response `200 OK`:
     {
       "id": 11,
       "test_id": 1,
+      "candidate_id": null,
       "title": "¿Estás de acuerdo con la educación pública universal?",
+      "description": null,
       "type_question": "only_option",
+      "video_url": null,
       "question_order": 1,
       "is_active": true,
       "category": {
@@ -861,6 +885,7 @@ Response `200 OK`:
         "name": "Educación",
         "weight": 1.5
       },
+      "candidate": null,
       "created_at": "2026-04-01T12:00:00"
     }
   ],
@@ -890,6 +915,8 @@ Errors: `404` if the category does not exist or is soft-deleted; `422` invalid p
 [routes.py](app/domains/response_option/routes.py) · [service.py](app/domains/response_option/service.py) · [models.py](app/domains/response_option/models.py)
 
 Response options are the choices attached to a question. Each option carries a numeric `value` used by the recommender.
+
+> **Posture column.** The `response_options` table also has a `programmatic_alignment_value` column (`Float`, nullable) — renamed from the former `axis_value`. It encodes the candidate-posture-vs-option agreement used by the `programmatic_alignment` affinity strategy (see [Answers](#answers)). It is **not** exposed by `ResponseOptionRead`; only `value` is returned.
 
 #### `GET /api/v1/response-options/question/{question_id}`
 
@@ -1013,14 +1040,17 @@ Errors:
 
 [routes.py](app/domains/answer/routes.py) · [service.py](app/domains/answer/service.py) · [models.py](app/domains/answer/models.py)
 
-Answers belong to the **current test attempt** of the visitor in the JWT (the visitor's most recent non-deleted attempt). Creating an answer also runs the **auto-completion** logic: when the count of distinct answered questions for the attempt reaches the count of active questions in the test, the attempt is transitioned to `status = COMPLETED` and `finished_at` is stamped.
+Answers belong to a **test attempt passed in the path** (and owned by the visitor in the JWT). Creating an answer also runs the **auto-completion** logic: when the count of distinct answered questions for the attempt reaches the count of active questions in the test, the attempt is transitioned to `status = COMPLETED` and `finished_at` is stamped.
 
-#### `POST /api/v1/answers`
+> **Path-scoped endpoints.** As of the match-electoral flow, the test attempt and the test are explicit path params rather than being resolved purely from the token: writes take `{test_attempt_id}`, and the list/affinity reads take `{test_id}`. This lets one visitor run several tests (e.g. the classic test and a match flow) without the endpoints guessing which attempt is meant.
 
-Create an answer for the current test attempt.
+#### `POST /api/v1/answers/{test_attempt_id}`
+
+Create an answer for the given test attempt (which must belong to the visitor in the token).
 
 - **Auth**: required
 - **Rate limit**: `500/minute`
+- **Path**: `test_attempt_id` (int, `> 0`)
 - **Status**: `201 Created`
 
 Request body — [`AnswerCreate`](app/domains/answer/schemas.py):
@@ -1031,6 +1061,7 @@ Request body — [`AnswerCreate`](app/domains/answer/schemas.py):
   "response_option_id": 501,
   "boolean_answer": null,
   "open_text_answer": null,
+  "emotion_answer": null,
   "response_time": 4200
 }
 ```
@@ -1041,11 +1072,12 @@ Field rules:
 - `response_option_id` is `> 0` if provided. Use it for `multiple_choice` / `only_option` questions.
 - `boolean_answer` for `boolean` questions.
 - `open_text_answer` for `open_question`.
+- `emotion_answer` is a `float` in `[-1.0, 1.0]` if provided — the visitor's emotional reaction for a `video_emotion_slider` question (`-1` rejection … `0` neutral … `+1` empathy).
 - `response_time` (ms) is `≥ 0` if provided.
 
 Service-side validations:
 
-- The visitor must have a current test attempt with `status = IN_PROGRESS`.
+- The `test_attempt_id` must exist, belong to the visitor, and have `status = IN_PROGRESS`.
 - Question must exist and belong to the attempt's test.
 - If `response_option_id` is set, it must exist and belong to `question_id`.
 
@@ -1060,6 +1092,7 @@ Response `201 Created`:
     "response_option_id": 501,
     "boolean_answer": null,
     "open_text_answer": null,
+    "emotion_answer": null,
     "response_time": 4200,
     "created_at": "2026-05-02T12:01:30"
   },
@@ -1090,24 +1123,25 @@ Errors:
 | `422`  | Body fails Pydantic validation                                                               |
 | `429`  | Rate limit exceeded                                                                          |
 
-#### `PATCH /api/v1/answers/{answer_id}`
+#### `PATCH /api/v1/answers/{test_attempt_id}/{answer_id}`
 
-Partially update an answer that belongs to the current test attempt. Only fields present in the body are modified (`exclude_unset=True`).
+Partially update an answer that belongs to the given test attempt. Only fields present in the body are modified (`exclude_unset=True`).
 
 - **Auth**: required
 - **Rate limit**: `500/minute`
-- **Path**: `answer_id` (int, `> 0`)
+- **Path**: `test_attempt_id` (int, `> 0`), `answer_id` (int, `> 0`)
 
 Request body — [`AnswerUpdate`](app/domains/answer/schemas.py):
 
 ```json
 {
   "response_option_id": 502,
+  "emotion_answer": 0.5,
   "response_time": 5500
 }
 ```
 
-Validations: same as `POST` for the fields provided. The visitor's current attempt must still be `IN_PROGRESS`, and the answer must belong to it.
+Validations: same as `POST` for the fields provided (including `emotion_answer` in `[-1, 1]`). The attempt must still be `IN_PROGRESS`, and the answer must belong to it.
 
 Response `200 OK`: the updated `AnswerRead` shape.
 
@@ -1121,12 +1155,13 @@ Errors:
 | `422`  | Body fails Pydantic validation                                                        |
 | `429`  | Rate limit exceeded                                                                   |
 
-#### `GET /api/v1/answers`
+#### `GET /api/v1/answers/{test_id}`
 
-List answers belonging to the current test attempt (the most recent attempt of the JWT's `visitor_id`). Ordered by `created_at DESC, id DESC`.
+List the visitor's answers for the given test (resolved against the visitor's attempt for that test). Ordered by `created_at DESC, id DESC`.
 
 - **Auth**: required
 - **Rate limit**: `500/minute`
+- **Path**: `test_id` (int, `> 0`)
 - **Query**: `limit`, `offset`
 
 Response `200 OK`:
@@ -1141,6 +1176,7 @@ Response `200 OK`:
       "response_option_id": 501,
       "boolean_answer": null,
       "open_text_answer": null,
+      "emotion_answer": null,
       "response_time": 4200,
       "created_at": "2026-05-02T12:01:30"
     }
@@ -1153,27 +1189,36 @@ Response `200 OK`:
 
 Errors: `401` for missing/invalid tokens; `429` rate limit.
 
-#### `GET /api/v1/answers/affinity`
+#### `GET /api/v1/answers/affinity/{test_id}`
 
-Compute the affinity between the current test attempt and every candidate that has at least one posture in a category the user actually answered.
+Compute the affinity between the visitor's attempt for `test_id` and the candidates. The **algorithm depends on the test's `type`** — the endpoint dispatches in [`service.get_affinity`](app/domains/answer/service.py) to one of two strategies on the [`Affinity`](app/domains/answer/affinity.py) class. A test with an unsupported / missing `type` returns `400`.
 
-The algorithm — implemented in [`service.get_affinity`](app/domains/answer/service.py) — works as follows:
+- **Auth**: required
+- **Rate limit**: `500/minute`
+- **Path**: `test_id` (int, `> 0`)
+
+##### Strategy A — `political_spectrum`
+
+`Affinity.compute_political_spectrum_affinity` — ranks candidates by the **Weighted Manhattan Distance** between the user's per-category averages and the candidate's rhetorically-weighted postures:
 
 1. **User vector** — for every category in which the user answered at least one question, compute `user_avg[c] = mean(response_option.value)`.
-2. **Candidate vector** — for every candidate, compute `candidate_avg[c] = mean(posture.axis_value)` over their proposals in the same categories, then apply the candidate's rhetorical weight for that category via [`apply_rhetorical_weight`](app/domains/rhetorical_weight/service.py) (`sign(avg) * |avg|^(1/weight)`). Candidates with `rhetorical_weight > 1` in a category therefore appear more extreme on that axis when computing affinity; the response field names are unchanged.
-3. **Weighted Manhattan distance** — `distance = Σ |user_avg[c] − candidate_avg[c]| × weight[c]` (using the adjusted candidate vector).
-4. **Normalized affinity** — axis values are in `[-1, +1]`, so the max possible per-category gap is `2`. The score is normalized to `[0, 1]`:
-   `affinity = 1 − distance / Σ (2 × weight[c])`.
+2. **Candidate vector** — for every candidate, compute `candidate_avg[c] = mean(posture.axis_value)` over their proposals in the same categories, then apply the candidate's rhetorical weight for that category via [`apply_rhetorical_weight`](app/domains/rhetorical_weight/service.py) (`sign(avg) * |avg|^(1/weight)`).
+3. **Weighted Manhattan distance** — `distance = Σ |user_avg[c] − candidate_avg[c]| × weight[c]`.
+4. **Normalized affinity** — axis values are in `[-1, +1]`, so the max per-category gap is `2`: `affinity = 1 − distance / Σ (2 × weight[c])`.
 
-Only categories present in **both** vectors are compared (`categories_compared`). Candidates with zero shared categories are dropped. Results are sorted by `affinity DESC`.
+Only categories present in **both** vectors are compared (`categories_compared`); candidates with no overlap are dropped. Answers without a `response_option_id`, questions without a `category_id`, and soft-deleted `Answer` / `Question` / `Proposal` / `Posture` / `Candidate` rows are excluded.
 
-Filtering rules applied throughout the aggregation:
+##### Strategy B — `programmatic_alignment`
 
-- Answers without a `response_option_id` (i.e. boolean / open-text answers) are ignored.
-- Questions without a `category_id` are ignored.
-- Soft-deleted rows are excluded on `Answer`, `Question`, `Proposal`, `Posture`, and `Candidate`.
+`Affinity.compute_programmatic_alignment_affinity` — scores each candidate from the visitor's **direct answers to that candidate's proposals (90%)** plus their **emotional reaction to the candidate's videos (10%)**. Here questions are tied to a `candidate_id`, and each option carries a `programmatic_alignment_value` (the candidate-posture × option agreement, `X`):
 
-The response shape — defined by [`AffinityResponse`](app/domains/answer/schemas.py) (`CategoryAverage`, `CandidateAffinity`) — degrades gracefully:
+- Per proposal question: `R = response_option.value`, agreement `A = (R + 1) / 2 ∈ [0, 1]`.
+- **Contradiction penalty** — each category's weight is shrunk by the variance of the visitor's postures `X` within it: `W̃_cat = W_cat × (1 − min(σ²(X), 1))`. (If every category is fully contradicted the candidate falls back to the plain mean of `A`.)
+- **Proposal match** — `match = Σ (W̃_cat × A) / Σ W̃_cat` over that candidate's questions.
+- **Emotion** — `video_emotion_slider` answers (`emotion_answer ∈ [-1, 1]`) map to `(e + 1) / 2`, averaged per candidate (neutral `0.5` when the candidate has none).
+- **Final** — `affinity = 0.9 × match + 0.1 × emotion`, clamped to `[0, 1]`. `distance` is reported as `0.0` for this strategy; `user_averages` reports the mean posture per category.
+
+Results from either strategy are sorted by `affinity DESC`. The response shape — defined by [`AffinityResponse`](app/domains/answer/schemas.py) (`CategoryAverage`, `CandidateAffinity`) — degrades gracefully:
 
 | State                                                                  | `user_averages` | `candidates` |
 | ---------------------------------------------------------------------- | --------------- | ------------ |
@@ -1221,15 +1266,16 @@ Response `200 OK`:
 }
 ```
 
-All graceful-degradation states above still return `200 OK` — only a missing test attempt yields an error.
+All graceful-degradation states above still return `200 OK` — only a missing test/attempt or an unsupported test type yields an error.
 
 Errors:
 
-| Status | When                                                  |
-| ------ | ----------------------------------------------------- |
-| `401`  | Missing / invalid token                               |
-| `404`  | Test attempt referenced by the token does not exist   |
-| `429`  | Rate limit exceeded                                   |
+| Status | When                                                            |
+| ------ | --------------------------------------------------------------- |
+| `400`  | The test's `type` is unset or not a supported affinity strategy |
+| `401`  | Missing / invalid token                                         |
+| `404`  | Test not found, or the visitor has no attempt for it            |
+| `429`  | Rate limit exceeded                                             |
 
 ---
 
